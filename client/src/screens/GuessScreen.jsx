@@ -16,10 +16,7 @@ export default function GuessScreen({ round, myId, game }) {
   const guesserId = roundNumber % 2 === 1 ? game.player2_id : game.player1_id
 
   const iAmGuesser = myId === guesserId
-  const myScore = myId === game.player1_id ? game.player1_score : game.player2_score
-  const herScore = myId === game.player1_id ? game.player2_score : game.player1_score
 
-  // Reset state when a new round starts
   useEffect(() => {
     setFeedback(null)
     setGuess('')
@@ -27,7 +24,6 @@ export default function GuessScreen({ round, myId, game }) {
     setGuessesLeft(MAX_GUESSES)
     setMyHistory([])
 
-    // Initialize from server state
     if (iAmGuesser) {
       const used =
         myId === game.player1_id
@@ -91,24 +87,9 @@ export default function GuessScreen({ round, myId, game }) {
     },
   }
 
-  // If I'm not the guesser, show waiting screen
   if (!iAmGuesser) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
-        <div className="text-xs text-rose-soft/60 mb-2">
-          Round {roundNumber} of 15
-        </div>
-        <div className="flex justify-around mb-6 text-sm w-full max-w-xs">
-          <div>
-            <div className="text-rose-soft/60 text-xs">You</div>
-            <div className="text-2xl font-bold text-rose-soft">{myScore}</div>
-          </div>
-          <div className="text-rose-glow text-2xl self-center">vs</div>
-          <div>
-            <div className="text-rose-soft/60 text-xs">Malaika</div>
-            <div className="text-2xl font-bold text-rose-soft">{herScore}</div>
-          </div>
-        </div>
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24 text-center">
         <div className="text-7xl mb-4">⏳</div>
         <h2 className="font-display text-3xl text-rose-soft mb-2">
           Her turn to guess
@@ -123,28 +104,12 @@ export default function GuessScreen({ round, myId, game }) {
   const config = feedback ? feedbackConfig[feedback] : null
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
-        <div className="text-center text-xs text-rose-soft/60 mb-2">
-          Round {roundNumber} of 15
-        </div>
-
-        <div className="flex justify-around mb-4 text-sm">
-          <div className="text-center">
-            <div className="text-rose-soft/60 text-xs">You</div>
-            <div className="text-2xl font-bold text-rose-soft">{myScore}</div>
-          </div>
-          <div className="text-rose-glow text-2xl self-center">vs</div>
-          <div className="text-center">
-            <div className="text-rose-soft/60 text-xs">Malaika</div>
-            <div className="text-2xl font-bold text-rose-soft">{herScore}</div>
-          </div>
-        </div>
-
         <div className="text-center mb-4">
           <h2 className="font-display text-2xl text-rose-soft mb-1">
             Your turn 💘
@@ -154,7 +119,6 @@ export default function GuessScreen({ round, myId, game }) {
           </p>
         </div>
 
-        {/* Feedback banner */}
         <AnimatePresence>
           {config && (
             <motion.div
@@ -183,7 +147,6 @@ export default function GuessScreen({ round, myId, game }) {
           )}
         </AnimatePresence>
 
-        {/* Guesses left */}
         <div className="text-center mb-3">
           <span className="text-rose-soft/70 text-sm">
             {guessesLeft > 0
@@ -192,7 +155,6 @@ export default function GuessScreen({ round, myId, game }) {
           </span>
         </div>
 
-        {/* Input */}
         <input
           type="number"
           inputMode="numeric"
@@ -213,7 +175,6 @@ export default function GuessScreen({ round, myId, game }) {
           GUESS 💘
         </button>
 
-        {/* History chips */}
         {myHistory.length > 0 && (
           <div className="flex flex-wrap gap-2 justify-center mt-4">
             {myHistory.map((h, i) => (

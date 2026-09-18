@@ -23,15 +23,11 @@ const io = new Server(httpServer, {
   cors: { origin: '*' },
 })
 
-// Health check
 app.get('/', (req, res) => res.send('Guess My Number server is running 🚀'))
-
-// ---- SOCKET.IO EVENTS ----
 
 io.on('connection', (socket) => {
   console.log('✅ Connected:', socket.id)
 
-  // Create a new game
   socket.on('create_game', () => {
     const game = createGame(socket.id)
     socket.join(game.id)
@@ -39,7 +35,6 @@ io.on('connection', (socket) => {
     console.log('🎮 Game created:', game.id)
   })
 
-  // Join existing game with room code
   socket.on('join_game', ({ gameId }) => {
     const result = joinGame(gameId, socket.id)
     if (result.error) {
@@ -55,7 +50,6 @@ io.on('connection', (socket) => {
     console.log('👥 Player joined:', gameId)
   })
 
-  // Player picks their secret number
   socket.on('pick_secret', ({ roundId, number }) => {
     const result = pickSecret(roundId, socket.id, number)
     if (result.error) {
@@ -72,19 +66,17 @@ io.on('connection', (socket) => {
     }
   })
 
-  // Player submits a guess
   socket.on('submit_guess', ({ roundId, guess }) => {
     const result = submitGuess(roundId, socket.id, guess)
     if (result.error) {
       socket.emit('error_message', result.error)
       return
     }
-  
+
     const round = result.round
     const game = getGame(round.game_id)
-  
+
     if (result.roundEnded) {
-      // Send feedback to guesser AND end the round for both
       socket.emit('guess_feedback', {
         feedback: result.found ? 'correct' : 'wrong',
         guess,
@@ -101,15 +93,17 @@ io.on('connection', (socket) => {
     }
   })
 
-  // Start next round
   socket.on('next_round', ({ gameId }) => {
-    const round = nextRound(gameId)
-    io.to(gameId).emit('round_started', round)
+    const result = nextRound(gameId)
+    if (result.error) {
+      console.log('next_round error:', result.error)
+      socket.emit('error_message', result.error)
+      return
+    }
+    io.to(gameId).emit('round_started', result)
+    console.log('🔄 New round:', result.round_number)
   })
 
-  // ---- CHAT ----
-
-  // Send a message (text or sticker)
   socket.on('send_message', ({ gameId, content, type = 'text' }) => {
     if (!content || !content.trim()) return
 
@@ -131,7 +125,6 @@ io.on('connection', (socket) => {
     io.to(gameId).emit('new_message', message)
   })
 
-  // Load chat history when joining
   socket.on('load_messages', ({ gameId }) => {
     const rows = db.prepare(`
       SELECT * FROM messages WHERE game_id = ? ORDER BY created_at ASC LIMIT 200
@@ -145,6 +138,6 @@ io.on('connection', (socket) => {
 })
 
 const PORT = process.env.PORT || 4000
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`)
 })

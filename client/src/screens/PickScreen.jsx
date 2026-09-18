@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { socket } from '../socket'
 
@@ -26,30 +26,14 @@ export default function PickScreen({ round, myId, game }) {
     setWaiting(true)
   }
 
-  // If I'm the guesser, show a waiting screen
   if (iAmGuesser) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24 text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="max-w-md"
         >
-          <div className="text-xs text-rose-soft/60 mb-2">
-            Round {roundNumber} of 15
-          </div>
-          <div className="flex justify-around mb-6 text-sm">
-            <div>
-              <div className="text-rose-soft/60 text-xs">You</div>
-              <div className="text-2xl font-bold text-rose-soft">{myScore}</div>
-            </div>
-            <div className="text-rose-glow text-2xl">vs</div>
-            <div>
-              <div className="text-rose-soft/60 text-xs">Malaika</div>
-              <div className="text-2xl font-bold text-rose-soft">{herScore}</div>
-            </div>
-          </div>
-
           <div className="text-7xl mb-4">💭</div>
           <h2 className="font-display text-3xl text-rose-soft mb-2">
             Her turn to pick
@@ -71,10 +55,9 @@ export default function PickScreen({ round, myId, game }) {
     )
   }
 
-  // I'm the picker
   if (waiting) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24 text-center">
         <div className="text-7xl mb-4">🔒</div>
         <h2 className="font-display text-3xl text-rose-soft mb-2">
           Number locked!
@@ -87,28 +70,12 @@ export default function PickScreen({ round, myId, game }) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="w-full max-w-md"
       >
-        <div className="text-center text-xs text-rose-soft/60 mb-2">
-          Round {roundNumber} of 15
-        </div>
-
-        <div className="flex justify-around mb-6 text-sm">
-          <div className="text-center">
-            <div className="text-rose-soft/60 text-xs">You</div>
-            <div className="text-2xl font-bold text-rose-soft">{myScore}</div>
-          </div>
-          <div className="text-rose-glow text-2xl self-center">vs</div>
-          <div className="text-center">
-            <div className="text-rose-soft/60 text-xs">Malaika</div>
-            <div className="text-2xl font-bold text-rose-soft">{herScore}</div>
-          </div>
-        </div>
-
         <div className="text-center mb-6">
           <div className="text-6xl mb-3">🤫</div>
           <h1 className="font-display text-3xl text-rose-soft mb-2">

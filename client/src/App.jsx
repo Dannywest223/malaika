@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { socket } from './socket'
 import FloatingHearts from './components/FloatingHearts'
 import MusicPlayer from './components/MusicPlayer'
+import ScoreBar from './components/ScoreBar'
 import Chat from './components/Chat'
 import ChatButton from './components/ChatButton'
 import MessageToast from './components/MessageToast'
@@ -27,7 +28,6 @@ export default function App() {
   chatOpenRef.current = chatOpen
 
   useEffect(() => {
-    // If socket already connected when app mounts, grab the id immediately
     if (socket.connected) {
       setMyId(socket.id)
       setConnected(true)
@@ -47,25 +47,21 @@ export default function App() {
     socket.on('disconnect', onDisconnect)
 
     socket.on('game_created', (g) => {
-      console.log('game_created', g)
       setGame(g)
       setScreen('lobby')
     })
 
     socket.on('game_started', (g) => {
-      console.log('game_started', g)
       setGame(g)
     })
 
     socket.on('round_started', (r) => {
-      console.log('round_started', r)
       setRound(r)
       setRoundResult(null)
       setScreen('pick')
     })
 
     socket.on('round_ready', (r) => {
-      console.log('round_ready', r)
       setRound(r)
       setScreen('guess')
     })
@@ -79,7 +75,6 @@ export default function App() {
     })
 
     socket.on('round_ended', (result) => {
-      console.log('round_ended', result)
       setRound(result.round)
       setGame(result.game)
       setRoundResult(result)
@@ -88,7 +83,6 @@ export default function App() {
 
     socket.on('error_message', (msg) => alert(msg))
 
-    // Chat notification: only show toast if chat isn't open
     socket.on('new_message', (msg) => {
       if (msg.sender_id === socket.id) return
       if (chatOpenRef.current) return
@@ -109,12 +103,9 @@ export default function App() {
     setToast(null)
   }
 
-  const closeChat = () => {
-    setChatOpen(false)
-  }
+  const closeChat = () => setChatOpen(false)
 
   const handleRematch = () => {
-    // Reset local state and create a fresh game
     setGame(null)
     setRound(null)
     setRoundResult(null)
@@ -122,7 +113,6 @@ export default function App() {
     socket.emit('create_game')
   }
 
-  // --- Connection loading screen ---
   if (!connected) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-rose-soft">
@@ -141,10 +131,15 @@ export default function App() {
     )
   }
 
+  const showScoreBar =
+    game && screen !== 'home' && screen !== 'lobby' && screen !== 'gameOver'
+
   return (
     <div className="relative min-h-screen">
       <FloatingHearts />
       <MusicPlayer hidden={chatOpen} />
+
+      {showScoreBar && <ScoreBar game={game} myId={myId} round={round} />}
 
       <div className="relative z-10">
         {screen === 'home' && <HomeScreen />}
@@ -173,7 +168,6 @@ export default function App() {
         )}
       </div>
 
-      {/* Chat + notifications — only after a game exists */}
       {game && (
         <>
           <ChatButton onClick={openChat} unread={unread} />
