@@ -1,14 +1,21 @@
 import { nanoid } from 'nanoid'
 import db from '../db.js'
-import { MAX_GUESSES, MIN_NUMBER, MAX_NUMBER, pointsForGuesses, evaluateGuess } from './rules.js'
+import {
+  MAX_GUESSES,
+  MIN_NUMBER,
+  MAX_NUMBER,
+  TOTAL_ROUNDS,
+  pointsForGuesses,
+  evaluateGuess,
+} from './rules.js'
 
 // ---- GAME CREATION ----
 
 export function createGame(player1Id) {
-  const id = nanoid(6).toUpperCase() // short room code like "A3F9K2"
+  const id = nanoid(6).toUpperCase()
   db.prepare(`
-    INSERT INTO games (id, player1_id, status, created_at)
-    VALUES (?, ?, 'waiting', ?)
+    INSERT INTO games (id, player1_id, status, current_round, created_at)
+    VALUES (?, ?, 'waiting', 1, ?)
   `).run(id, player1Id, Date.now())
   return getGame(id)
 }
@@ -30,17 +37,24 @@ export function getGame(gameId) {
   return db.prepare('SELECT * FROM games WHERE id = ?').get(gameId)
 }
 
-// ---- ROUND MANAGEMENT ----
+// ---- ROUNDS ----
+// Round 1: picker = player1, guesser = player2
+// Round 2: picker = player2, guesser = player1
+// etc. Alternating.
 
 export function startNewRound(gameId) {
   const game = getGame(gameId)
-  const roundId = nanoid()
   const roundNumber = game.current_round
+  const roundId = nanoid()
+
+  // Alternate picker
+  const pickerId = roundNumber % 2 === 1 ? game.player1_id : game.player2_id
+  const guesserId = roundNumber % 2 === 1 ? game.player2_id : game.player1_id
 
   db.prepare(`
-    INSERT INTO rounds (id, game_id, round_number, status, created_at)
-    VALUES (?, ?, ?, 'picking', ?)
-  `).run(roundId, gameId, roundNumber, Date.now())
+    INSERT INTO rounds (id, game_id, round_number, turn_player_id, status, created_at)
+    VALUES (?, ?, ?, ?, 'picking', ?)
+  `).run(roundId, gameId, roundNumber, pickerId, Date.now())
 
   return getRound(roundId)
 }
@@ -55,7 +69,8 @@ export function getCurrentRound(gameId) {
   `).get(gameId)
 }
 
-// ---- PICKING SECRET NUMBERS ----
+// ---- PICKING SECRET NUMBER ----
+// Only the picker picks in this version (single secret per round)
 
 export function pickSecret(roundId, playerId, number) {
   const round = getRound(roundId)
@@ -65,22 +80,26 @@ export function pickSecret(roundId, playerId, number) {
   }
 
   const game = getGame(round.game_id)
-  const isPlayer1 = playerId === game.player1_id
+  const pickerId =
+    round.round_number % 2 === 1 ? game.player1_id : game.player2_id
+  const guesserId =
+    round.round_number % 2 === 1 ? game.player2_id : game.player1_id
 
-  if (isPlayer1) {
-    db.prepare('UPDATE rounds SET player1_secret = ? WHERE id = ?').run(number, roundId)
+  if (playerId !== pickerId) return { error: 'Not your turn to pick' }
+
+  // Store secret in player1_secret or player2_secret based on who picked
+  if (pickerId === game.player1_id) {
+    db.prepare('UPDATE rounds SET player1_secret = ? WHERE id = ?')
+      .run(number, roundId)
   } else {
-    db.prepare('UPDATE rounds SET player2_secret = ? WHERE id = ?').run(number, roundId)
+    db.prepare('UPDATE rounds SET player2_secret = ? WHERE id = ?')
+      .run(number, roundId)
   }
 
-  const updated = getRound(roundId)
-
-  // Both picked? Start playing. Player1 goes first.
-  if (updated.player1_secret != null && updated.player2_secret != null) {
-    db.prepare(`
-      UPDATE rounds SET status = 'playing', turn_player_id = ? WHERE id = ?
-    `).run(game.player1_id, roundId)
-  }
+  // Set it to playing, set turn to guesser
+  db.prepare(`
+    UPDATE rounds SET status = 'playing', turn_player_id = ? WHERE id = ?
+  `).run(guesserId, roundId)
 
   return { round: getRound(roundId) }
 }
@@ -94,29 +113,35 @@ export function submitGuess(roundId, playerId, guessValue) {
   if (round.turn_player_id !== playerId) return { error: 'Not your turn' }
 
   const game = getGame(round.game_id)
-  const isPlayer1 = playerId === game.player1_id
+  const pickerId =
+    round.round_number % 2 === 1 ? game.player1_id : game.player2_id
+  const guesserId =
+    round.round_number % 2 === 1 ? game.player2_id : game.player1_id
 
-  // Check guess limit
-  const guessesUsed = isPlayer1 ? round.player1_guesses_used : round.player2_guesses_used
+  if (playerId !== guesserId) return { error: 'You are not the guesser' }
+
+  const targetSecret =
+    pickerId === game.player1_id ? round.player1_secret : round.player2_secret
+
+  const guessesUsed =
+    guesserId === game.player1_id
+      ? round.player1_guesses_used
+      : round.player2_guesses_used
+
   if (guessesUsed >= MAX_GUESSES) return { error: 'No guesses left' }
-
-  // Which secret are we comparing against?
-  const targetSecret = isPlayer1 ? round.player2_secret : round.player1_secret
-  const targetPlayerId = isPlayer1 ? game.player2_id : game.player1_id
 
   const feedback = evaluateGuess(guessValue, targetSecret)
 
-  // Log the guess
+  // Log guess
   db.prepare(`
     INSERT INTO guesses (id, round_id, guesser_id, target_player_id, guess_value, feedback, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(nanoid(), roundId, playerId, targetPlayerId, guessValue, feedback, Date.now())
+  `).run(nanoid(), roundId, playerId, pickerId, guessValue, feedback, Date.now())
 
-  // Update round counters
   const newGuessesUsed = guessesUsed + 1
   const found = feedback === 'correct'
 
-  if (isPlayer1) {
+  if (guesserId === game.player1_id) {
     db.prepare(`
       UPDATE rounds SET player1_guesses_used = ?, player1_found = ? WHERE id = ?
     `).run(newGuessesUsed, found ? 1 : 0, roundId)
@@ -127,52 +152,59 @@ export function submitGuess(roundId, playerId, guessValue) {
   }
 
   const updated = getRound(roundId)
+  const updatedGuessesUsed =
+    guesserId === game.player1_id
+      ? updated.player1_guesses_used
+      : updated.player2_guesses_used
 
-  // Did the round end?
-  const p1Done = updated.player1_found || updated.player1_guesses_used >= MAX_GUESSES
-  const p2Done = updated.player2_found || updated.player2_guesses_used >= MAX_GUESSES
-
-  if (p1Done && p2Done) {
-    return endRound(roundId)
+  // Round ends if found OR out of guesses
+  if (found || updatedGuessesUsed >= MAX_GUESSES) {
+    return endRound(roundId, guesserId, updatedGuessesUsed, found)
   }
 
-  // Otherwise, switch turns
-  const nextTurn = isPlayer1 ? game.player2_id : game.player1_id
-  db.prepare('UPDATE rounds SET turn_player_id = ? WHERE id = ?').run(nextTurn, roundId)
-
-  return { round: getRound(roundId), feedback }
+  // Otherwise, same guesser continues (they get next try)
+  return {
+    round: getRound(roundId),
+    feedback,
+    guessesLeft: MAX_GUESSES - updatedGuessesUsed,
+  }
 }
 
 // ---- ROUND END + SCORING ----
 
-function endRound(roundId) {
+function endRound(roundId, guesserId, guessesUsed, found) {
   const round = getRound(roundId)
   const game = getGame(round.game_id)
 
-  const p1Points = pointsForGuesses(round.player1_guesses_used, round.player1_found)
-  const p2Points = pointsForGuesses(round.player2_guesses_used, round.player2_found)
+  const points = pointsForGuesses(guessesUsed, found)
 
-  let winnerId = null
-  if (p1Points > p2Points) winnerId = game.player1_id
-  else if (p2Points > p1Points) winnerId = game.player2_id
+  // Award points to the guesser
+  if (guesserId === game.player1_id) {
+    db.prepare('UPDATE games SET player1_score = player1_score + ? WHERE id = ?')
+      .run(points, game.id)
+  } else {
+    db.prepare('UPDATE games SET player2_score = player2_score + ? WHERE id = ?')
+      .run(points, game.id)
+  }
 
   db.prepare('UPDATE rounds SET status = ?, winner_id = ? WHERE id = ?')
-    .run('finished', winnerId, roundId)
+    .run('finished', found ? guesserId : null, roundId)
 
-  // Add to game scores
-  db.prepare(`
-    UPDATE games SET
-      player1_score = player1_score + ?,
-      player2_score = player2_score + ?
-    WHERE id = ?
-  `).run(p1Points, p2Points, game.id)
+  // Is the whole game done?
+  const isGameOver = round.round_number >= TOTAL_ROUNDS
+
+  if (isGameOver) {
+    db.prepare('UPDATE games SET status = ? WHERE id = ?')
+      .run('finished', game.id)
+  }
 
   return {
     round: getRound(roundId),
     roundEnded: true,
-    roundWinnerId: winnerId,
-    p1Points,
-    p2Points,
+    guesserId,
+    found,
+    points,
+    isGameOver,
     game: getGame(game.id),
   }
 }
@@ -181,6 +213,8 @@ function endRound(roundId) {
 
 export function nextRound(gameId) {
   const game = getGame(gameId)
-  db.prepare('UPDATE games SET current_round = current_round + 1 WHERE id = ?').run(gameId)
+  if (game.current_round >= TOTAL_ROUNDS) return { error: 'Game finished' }
+  db.prepare('UPDATE games SET current_round = current_round + 1 WHERE id = ?')
+    .run(gameId)
   return startNewRound(gameId)
 }

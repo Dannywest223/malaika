@@ -1,90 +1,99 @@
+import { useEffect } from 'react'
+import { motion } from 'framer-motion'
 import { socket } from '../socket'
 
-export default function RoundEndScreen({ round, game, myId, setScreen }) {
-  const iWon = round.winner_id === myId
-  const isDraw = !round.winner_id
+export default function RoundEndScreen({ round, game, myId, setScreen, roundResult }) {
+  const isGameOver = roundResult?.isGameOver
+  const guesserId = roundResult?.guesserId
+  const found = roundResult?.found
+  const points = roundResult?.points || 0
 
-  const next = () => {
-    socket.emit('next_round', { gameId: game.id })
-    setScreen('pick')
-  }
+  const iWasGuesser = guesserId === myId
+  const myScore = myId === game.player1_id ? game.player1_score : game.player2_score
+  const herScore = myId === game.player1_id ? game.player2_score : game.player1_score
+
+  // Auto-advance to next round after 3 seconds (if game isn't over)
+  useEffect(() => {
+    if (isGameOver) {
+      const t = setTimeout(() => setScreen('gameOver'), 2500)
+      return () => clearTimeout(t)
+    }
+    const t = setTimeout(() => {
+      socket.emit('next_round', { gameId: game.id })
+    }, 3500)
+    return () => clearTimeout(t)
+  }, [isGameOver])
+
+  const secret =
+    myId === game.player1_id ? round.player2_secret : round.player1_secret
+  const realSecret =
+    round.round_number % 2 === 1 ? round.player1_secret : round.player2_secret
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <div style={{ fontSize: 70, marginBottom: 12 }}>
-          {isDraw ? '🤝' : iWon ? '🏆' : '💔'}
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-md"
+      >
+        <div className="text-7xl mb-3">
+          {found ? (iWasGuesser ? '🏆' : '💔') : '😅'}
         </div>
-        <h1 style={{ color: '#ff9ec7', marginBottom: 12 }}>
-          {isDraw ? 'Draw!' : iWon ? 'You won!' : 'She won!'}
+
+        <h1 className="font-display text-4xl text-rose-soft mb-2">
+          {found
+            ? iWasGuesser
+              ? 'You got it! 🎉'
+              : 'She got it! 💕'
+            : 'Nobody got it 😅'}
         </h1>
 
-        <div style={styles.scoreRow}>
-          <div>
-            <div style={{ color: '#aaa', fontSize: 12 }}>Round {round.round_number}</div>
-            <div style={{ marginTop: 12, color: '#4da6ff', fontSize: 14 }}>
-              Your guesses: {myId === game.player1_id ? round.player1_guesses_used : round.player2_guesses_used}
+        <p className="text-rose-soft/70 text-sm mb-6">
+          The number was{' '}
+          <span className="text-rose-glow font-bold text-xl">{realSecret}</span>
+        </p>
+
+        {found && (
+          <div className="mb-6 text-lg">
+            {iWasGuesser ? (
+              <span className="text-green-400 font-bold">
+                +{points} point{points === 1 ? '' : 's'} for you!
+              </span>
+            ) : (
+              <span className="text-rose-soft font-bold">
+                +{points} point{points === 1 ? '' : 's'} for Malaika!
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="bg-white/5 rounded-2xl p-5 mb-6 border border-rose-glow/30">
+          <div className="text-xs text-rose-soft/60 mb-2">Score</div>
+          <div className="flex justify-around items-center">
+            <div>
+              <div className="text-rose-soft/60 text-xs">You</div>
+              <div className="text-3xl font-black text-rose-soft">{myScore}</div>
             </div>
-            <div style={{ color: '#ff994d', fontSize: 14 }}>
-              Her guesses: {myId === game.player1_id ? round.player2_guesses_used : round.player1_guesses_used}
+            <div className="text-rose-glow text-2xl">vs</div>
+            <div>
+              <div className="text-rose-soft/60 text-xs">Malaika</div>
+              <div className="text-3xl font-black text-rose-soft">{herScore}</div>
             </div>
           </div>
         </div>
 
-        <div style={styles.totalScore}>
-          <div style={{ fontSize: 14, color: '#aaa', marginBottom: 8 }}>Total Score</div>
-          <div style={{ fontSize: 22, fontWeight: 'bold' }}>
-            You: <span style={{ color: '#ff4d9e' }}>
-              {myId === game.player1_id ? game.player1_score : game.player2_score}
-            </span>
-            {'  ·  '}
-            Her: <span style={{ color: '#ff9ec7' }}>
-              {myId === game.player1_id ? game.player2_score : game.player1_score}
-            </span>
-          </div>
-        </div>
+        {!isGameOver && (
+          <p className="text-rose-soft/60 text-sm animate-pulse">
+            Next round starting...
+          </p>
+        )}
 
-        <button onClick={next} style={styles.primaryBtn}>
-          Next Round ➡️
-        </button>
-      </div>
+        {isGameOver && (
+          <p className="text-rose-glow text-sm animate-pulse">
+            Final results coming... 💘
+          </p>
+        )}
+      </motion.div>
     </div>
   )
-}
-
-const styles = {
-  container: {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  card: {
-    background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,105,180,0.3)',
-    borderRadius: 24,
-    padding: 32,
-    textAlign: 'center',
-    maxWidth: 420,
-    width: '100%',
-  },
-  totalScore: {
-    background: 'rgba(255,105,180,0.1)',
-    borderRadius: 16,
-    padding: 20,
-    margin: '24px 0',
-  },
-  primaryBtn: {
-    width: '100%',
-    padding: 18,
-    background: '#ff4d9e',
-    color: 'white',
-    borderRadius: 16,
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  scoreRow: {
-    color: '#ccc',
-  },
 }

@@ -79,19 +79,25 @@ io.on('connection', (socket) => {
       socket.emit('error_message', result.error)
       return
     }
-
+  
     const round = result.round
     const game = getGame(round.game_id)
-
+  
     if (result.roundEnded) {
+      // Send feedback to guesser AND end the round for both
+      socket.emit('guess_feedback', {
+        feedback: result.found ? 'correct' : 'wrong',
+        guess,
+        round,
+      })
       io.to(game.id).emit('round_ended', result)
     } else {
       socket.emit('guess_feedback', {
         feedback: result.feedback,
         guess,
         round,
+        guessesLeft: result.guessesLeft,
       })
-      socket.to(game.id).emit('opponent_guessed', { round })
     }
   })
 
