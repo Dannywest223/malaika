@@ -147,11 +147,52 @@ export function submitGuess(roundId, playerId, guessValue) {
     return endRound(roundId, guesserId, updatedGuessesUsed, found)
   }
 
+  // After 2nd wrong guess → generate 3 options for the final try
+  let options = null
+  if (updatedGuessesUsed === 2) {
+    options = generateThreeOptions(targetSecret)
+  }
+
   return {
     round: getRound(roundId),
     feedback,
     guessesLeft: MAX_GUESSES - updatedGuessesUsed,
+    options,
   }
+}
+
+// Generate 3 shuffled options: 1 correct + 2 decoys within ±15
+function generateThreeOptions(secret) {
+  const options = new Set()
+  options.add(secret)
+
+  const minBound = Math.max(1, secret - 15)
+  const maxBound = Math.min(100, secret + 15)
+
+  let attempts = 0
+  while (options.size < 3 && attempts < 100) {
+    attempts++
+    const candidate =
+      Math.floor(Math.random() * (maxBound - minBound + 1)) + minBound
+    if (candidate !== secret) {
+      options.add(candidate)
+    }
+  }
+
+  // Fallback if bounds are tiny
+  while (options.size < 3) {
+    const fallback = Math.floor(Math.random() * 100) + 1
+    if (fallback !== secret) options.add(fallback)
+  }
+
+  // Shuffle
+  const arr = Array.from(options)
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+
+  return arr
 }
 
 function endRound(roundId, guesserId, guessesUsed, found) {

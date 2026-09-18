@@ -42,7 +42,7 @@ export default function RoundEndScreen({ round, game, myId, setScreen, roundResu
 
     // INSTANT advance — 700ms so she can read the result, then move on
     if (iShouldFireNextRound) {
-      const t = setTimeout(advance, 700)
+        const t = setTimeout(advance, 2500)
       return () => clearTimeout(t)
     }
   }, [isGameOver, iShouldFireNextRound])

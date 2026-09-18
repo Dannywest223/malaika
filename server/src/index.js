@@ -72,10 +72,10 @@ io.on('connection', (socket) => {
       socket.emit('error_message', result.error)
       return
     }
-
+  
     const round = result.round
     const game = getGame(round.game_id)
-
+  
     if (result.roundEnded) {
       socket.emit('guess_feedback', {
         feedback: result.found ? 'correct' : 'wrong',
@@ -89,6 +89,7 @@ io.on('connection', (socket) => {
         guess,
         round,
         guessesLeft: result.guessesLeft,
+        options: result.options,
       })
     }
   })
