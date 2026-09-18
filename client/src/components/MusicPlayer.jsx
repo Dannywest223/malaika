@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-export default function MusicPlayer() {
+export default function MusicPlayer({ hidden = false }) {
   const audioRef = useRef(null)
   const [playing, setPlaying] = useState(false)
   const [unmuted, setUnmuted] = useState(false)
@@ -10,14 +10,12 @@ export default function MusicPlayer() {
     if (!audio) return
 
     audio.loop = true
-    audio.volume = 0 // start silent — browsers allow muted autoplay
+    audio.volume = 0
 
-    // Try to start playing immediately (muted)
     const tryMutedAutoplay = async () => {
       try {
         await audio.play()
         setPlaying(true)
-        console.log('🎵 Audio started (muted autoplay)')
       } catch (err) {
         console.log('⚠️ Muted autoplay blocked:', err.message)
       }
@@ -25,18 +23,15 @@ export default function MusicPlayer() {
 
     tryMutedAutoplay()
 
-    // Unmute on the FIRST user interaction anywhere
     const unmute = () => {
       if (unmuted) return
       const a = audioRef.current
       if (!a) return
 
-      // If audio isn't playing yet, start it now
       if (a.paused) {
         a.play().catch(() => {})
       }
 
-      // Fade volume in gently
       a.muted = false
       let v = 0
       const fade = setInterval(() => {
@@ -47,9 +42,7 @@ export default function MusicPlayer() {
 
       setPlaying(true)
       setUnmuted(true)
-      console.log('🔊 Audio unmuted after user gesture')
 
-      // Remove the listeners once done
       ;['click', 'touchstart', 'keydown', 'scroll'].forEach((e) =>
         document.removeEventListener(e, unmute)
       )
@@ -78,6 +71,19 @@ export default function MusicPlayer() {
     }
   }
 
+  // Hide entirely when chat is open — no more collision
+  if (hidden) {
+    return (
+      <audio
+        ref={audioRef}
+        src="/music/romantic.mp3"
+        preload="auto"
+        loop
+        playsInline
+      />
+    )
+  }
+
   return (
     <>
       <audio
@@ -88,19 +94,19 @@ export default function MusicPlayer() {
         playsInline
       />
 
-      {/* Small play/pause button in the corner */}
+      {/* Music button — moved UP so it never collides with chat send */}
       <button
         onClick={toggle}
-        className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full bg-rose-glow/20 backdrop-blur border border-rose-glow/50 text-white text-xl shadow-soft hover:scale-110 transition"
+        className="fixed bottom-24 right-4 z-40 w-11 h-11 rounded-full bg-rose-glow/20 backdrop-blur border border-rose-glow/50 text-white text-lg shadow-soft hover:scale-110 transition"
         title={playing ? 'Pause music' : 'Play music'}
       >
         {playing ? '⏸️' : '▶️'}
       </button>
 
-      {/* Small prompt — only shows until she taps once */}
+      {/* Prompt — moved UP and left a bit */}
       {!unmuted && (
-        <div className="fixed bottom-24 right-6 z-50 text-xs text-rose-soft/70 bg-rose-deep/80 backdrop-blur px-3 py-2 rounded-full border border-rose-glow/30 animate-pulse">
-          Tap anywhere for music 🎵
+        <div className="fixed bottom-40 right-4 z-40 text-[10px] text-rose-soft/70 bg-rose-deep/80 backdrop-blur px-2 py-1 rounded-full border border-rose-glow/30 animate-pulse">
+          Tap for music 🎵
         </div>
       )}
     </>

@@ -5,7 +5,7 @@ export default function ChatButton({ onClick, unread }) {
     <motion.button
       onClick={onClick}
       whileTap={{ scale: 0.9 }}
-      className="fixed bottom-6 left-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-rose-glow to-pink-600 shadow-glow flex items-center justify-center text-2xl"
+      className="fixed bottom-8 left-4 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-rose-glow to-pink-600 shadow-glow flex items-center justify-center text-2xl"
     >
       💬
       {unread > 0 && (
