@@ -192,19 +192,28 @@ function endRound(roundId, guesserId, guessesUsed, found) {
 export function nextRound(gameId) {
   const game = getGame(gameId)
   if (!game) return { error: 'Game not found' }
-  if (game.current_round >= TOTAL_ROUNDS) return { error: 'Game finished' }
 
-  const expectedNext = game.current_round + 1
-
+  // Find the LATEST round for this game
   const latest = db.prepare(`
     SELECT * FROM rounds WHERE game_id = ? ORDER BY round_number DESC LIMIT 1
   `).get(gameId)
 
-  if (latest && latest.round_number === expectedNext) {
+  if (!latest) return { error: 'No rounds found' }
+
+  // If the latest round isn't finished, someone already advanced.
+  // Return the current round — do NOT create a new one.
+  if (latest.status !== 'finished') {
     return latest
   }
 
-  db.prepare('UPDATE games SET current_round = current_round + 1 WHERE id = ?')
-    .run(gameId)
+  // If we've hit max rounds, don't advance
+  if (latest.round_number >= TOTAL_ROUNDS) {
+    return { error: 'Game finished' }
+  }
+
+  // Safe to advance
+  db.prepare('UPDATE games SET current_round = ? WHERE id = ?')
+    .run(latest.round_number + 1, gameId)
+
   return startNewRound(gameId)
 }

@@ -1,7 +1,7 @@
 export const MAX_GUESSES = 3
 export const MIN_NUMBER = 1
 export const MAX_NUMBER = 100
-export const TOTAL_ROUNDS = 15
+export const TOTAL_ROUNDS = 20
 
 export function pointsForGuesses(guessesUsed, found) {
   if (!found) return 0

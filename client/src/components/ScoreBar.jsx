@@ -26,7 +26,7 @@ export default function ScoreBar({ game, myId, round }) {
             Round
           </div>
           <div className="text-lg font-bold text-rose-glow">
-            {roundNumber}/15
+            {roundNumber}/20
           </div>
         </div>
 

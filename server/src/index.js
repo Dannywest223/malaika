@@ -96,8 +96,7 @@ io.on('connection', (socket) => {
   socket.on('next_round', ({ gameId }) => {
     const result = nextRound(gameId)
     if (result.error) {
-      console.log('next_round error:', result.error)
-      socket.emit('error_message', result.error)
+      console.log('next_round error (ignored):', result.error)
       return
     }
     io.to(gameId).emit('round_started', result)

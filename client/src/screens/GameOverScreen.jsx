@@ -51,8 +51,8 @@ export default function GameOverScreen({ game, myId, onRematch }) {
           Game Over
         </h1>
         <p className="text-rose-soft/60 text-sm mb-8">
-          15 rounds of love and competition 💕
-        </p>
+  20 rounds of love and competition 💕
+</p>
 
         {/* Final scores */}
         <div className="bg-gradient-to-br from-rose-glow/20 to-purple-500/10 border-2 border-rose-glow/40 rounded-3xl p-6 mb-6 shadow-glow">

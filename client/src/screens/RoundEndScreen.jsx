@@ -11,27 +11,41 @@ export default function RoundEndScreen({ round, game, myId, setScreen, roundResu
   const points = roundResult?.points || 0
 
   const iWasGuesser = guesserId === myId
+  const roundNumber = round.round_number
+
+  // Which round's picker should fire the next_round event?
+  // Previous round's picker = the person who did NOT just guess
+  const previousPickerId =
+    roundNumber % 2 === 1 ? game.player1_id : game.player2_id
+
+  // Only the previous picker fires next_round (avoids double-fire)
+  const iShouldFireNextRound = myId === previousPickerId
+
   const myScore = myId === game.player1_id ? game.player1_score : game.player2_score
   const herScore = myId === game.player1_id ? game.player2_score : game.player1_score
 
   const realSecret =
-    round.round_number % 2 === 1 ? round.player1_secret : round.player2_secret
+    roundNumber % 2 === 1 ? round.player1_secret : round.player2_secret
 
   const advance = () => {
     if (advancing) return
+    if (!iShouldFireNextRound) return
     setAdvancing(true)
     socket.emit('next_round', { gameId: game.id })
-    setScreen('pick')
   }
 
   useEffect(() => {
     if (isGameOver) {
-      const t = setTimeout(() => setScreen('gameOver'), 3500)
+      const t = setTimeout(() => setScreen('gameOver'), 2500)
       return () => clearTimeout(t)
     }
-    const t = setTimeout(advance, 3000)
-    return () => clearTimeout(t)
-  }, [isGameOver])
+
+    // INSTANT advance — 700ms so she can read the result, then move on
+    if (iShouldFireNextRound) {
+      const t = setTimeout(advance, 700)
+      return () => clearTimeout(t)
+    }
+  }, [isGameOver, iShouldFireNextRound])
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24 text-center">
@@ -93,18 +107,8 @@ export default function RoundEndScreen({ round, game, myId, setScreen, roundResu
         </div>
 
         {!isGameOver && (
-          <button
-            onClick={advance}
-            disabled={advancing}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-glow to-pink-600 text-white font-bold text-xl shadow-glow hover:scale-[1.02] disabled:opacity-50 transition"
-          >
-            Next Round ➡️
-          </button>
-        )}
-
-        {!isGameOver && (
-          <p className="text-rose-soft/40 text-xs mt-3">
-            Auto-starting in a few seconds...
+          <p className="text-rose-soft/40 text-xs">
+            Round {roundNumber + 1} starting...
           </p>
         )}
 
