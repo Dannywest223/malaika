@@ -8,6 +8,7 @@ import ChatButton from './components/ChatButton'
 import MessageToast from './components/MessageToast'
 import HomeScreen from './screens/HomeScreen'
 import LobbyScreen from './screens/LobbyScreen'
+import GameMenuScreen from './screens/GameMenuScreen'
 import PickScreen from './screens/PickScreen'
 import GuessScreen from './screens/GuessScreen'
 import RoundEndScreen from './screens/RoundEndScreen'
@@ -20,6 +21,7 @@ export default function App() {
   const [roundResult, setRoundResult] = useState(null)
   const [myId, setMyId] = useState(socket.id)
   const [connected, setConnected] = useState(socket.connected)
+  const [gameType, setGameType] = useState(null) // 'number' | 'wyr' | 'knowme' | 'truths'
 
   const [chatOpen, setChatOpen] = useState(false)
   const [unread, setUnread] = useState(0)
@@ -52,6 +54,13 @@ export default function App() {
     })
 
     socket.on('game_started', (g) => {
+      setGame(g)
+      // Both players now go to the game menu to choose
+      setScreen('menu')
+    })
+
+    socket.on('game_type_selected', ({ gameType: gt, game: g }) => {
+      setGameType(gt)
       setGame(g)
     })
 
@@ -105,10 +114,20 @@ export default function App() {
 
   const closeChat = () => setChatOpen(false)
 
+  // Rematch → back to game menu so you two can pick a different game
   const handleRematch = () => {
+    setRound(null)
+    setRoundResult(null)
+    setGameType(null)
+    setScreen('menu')
+  }
+
+  // Full reset → back to home (new game code)
+  const handleNewGame = () => {
     setGame(null)
     setRound(null)
     setRoundResult(null)
+    setGameType(null)
     setScreen('home')
     socket.emit('create_game')
   }
@@ -132,7 +151,11 @@ export default function App() {
   }
 
   const showScoreBar =
-    game && screen !== 'home' && screen !== 'lobby' && screen !== 'gameOver'
+    game &&
+    screen !== 'home' &&
+    screen !== 'lobby' &&
+    screen !== 'menu' &&
+    screen !== 'gameOver'
 
   return (
     <div className="relative min-h-screen">
@@ -144,6 +167,11 @@ export default function App() {
       <div className="relative z-10">
         {screen === 'home' && <HomeScreen />}
         {screen === 'lobby' && <LobbyScreen game={game} />}
+
+        {screen === 'menu' && (
+          <GameMenuScreen game={game} myId={myId} />
+        )}
+
         {screen === 'pick' && (
           <PickScreen round={round} myId={myId} game={game} />
         )}
@@ -164,6 +192,7 @@ export default function App() {
             game={game}
             myId={myId}
             onRematch={handleRematch}
+            onNewGame={handleNewGame}
           />
         )}
       </div>

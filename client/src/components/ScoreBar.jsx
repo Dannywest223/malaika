@@ -3,8 +3,16 @@ import { motion } from 'framer-motion'
 export default function ScoreBar({ game, myId, round }) {
   if (!game || !myId) return null
 
-  const myScore = myId === game.player1_id ? game.player1_score : game.player2_score
-  const herScore = myId === game.player1_id ? game.player2_score : game.player1_score
+  const iAmPlayer1 = myId === game.player1_id
+
+  // My score vs their score
+  const myScore = iAmPlayer1 ? game.player1_score : game.player2_score
+  const theirScore = iAmPlayer1 ? game.player2_score : game.player1_score
+
+  // My name vs her name — always relative to the viewer
+  const myName = 'You'
+  const theirName = iAmPlayer1 ? 'Minatallah' : 'Danny'
+
   const roundNumber = round?.round_number || game.current_round || 1
 
   return (
@@ -16,7 +24,7 @@ export default function ScoreBar({ game, myId, round }) {
       <div className="max-w-md mx-auto flex items-center justify-around py-3 px-4">
         <div className="text-center">
           <div className="text-rose-soft/60 text-[10px] uppercase tracking-wider">
-            You
+            {myName}
           </div>
           <div className="text-2xl font-black text-rose-soft">{myScore}</div>
         </div>
@@ -32,9 +40,9 @@ export default function ScoreBar({ game, myId, round }) {
 
         <div className="text-center">
           <div className="text-rose-soft/60 text-[10px] uppercase tracking-wider">
-            Malaika
+            {theirName}
           </div>
-          <div className="text-2xl font-black text-rose-soft">{herScore}</div>
+          <div className="text-2xl font-black text-rose-soft">{theirScore}</div>
         </div>
       </div>
     </motion.div>

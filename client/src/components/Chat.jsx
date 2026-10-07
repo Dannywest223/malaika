@@ -17,7 +17,7 @@ const QUICK_REPLIES = [
 
 const STICKERS = ['💋', '💕', '😘', '🥰', '😈', '🤭', '💖', '🌹', '🍓', '🐻', '🥺', '😻']
 
-export default function Chat({ game, myId, open, onClose, unread }) {
+export default function Chat({ game, myId, open, onClose }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [showStickers, setShowStickers] = useState(false)
@@ -65,16 +65,27 @@ export default function Chat({ game, myId, open, onClose, unread }) {
           <div className="flex items-center justify-between p-4 border-b border-rose-glow/20">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-rose-glow">
-                <img src="/malaika.jpg" alt="" className="w-full h-full object-cover" />
+                <img
+                  src="/minatallah.jpg"
+                  alt="Minatallah"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none'
+                    e.target.parentElement.innerHTML =
+                      '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:20px">💕</div>'
+                  }}
+                />
               </div>
               <div>
-                <div className="font-display text-lg text-rose-soft">Malaika</div>
+                <div className="font-display text-lg text-rose-soft leading-tight">
+                  Minatallah Emad Ahmed
+                </div>
                 <div className="text-xs text-green-400">● online</div>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="w-9 h-9 rounded-full bg-white/5 text-rose-soft hover:bg-white/10"
+              className="w-9 h-9 rounded-full bg-white/5 text-rose-soft hover:bg-white/10 transition"
             >
               ✕
             </button>
@@ -91,7 +102,10 @@ export default function Chat({ game, myId, open, onClose, unread }) {
               const mine = m.sender_id === myId
               const isSticker = m.type === 'sticker'
               return (
-                <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  key={m.id}
+                  className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
+                >
                   <div
                     className={
                       isSticker
@@ -124,7 +138,7 @@ export default function Chat({ game, myId, open, onClose, unread }) {
                     <button
                       key={s}
                       onClick={() => send(s, 'sticker')}
-                      className="text-3xl py-2 rounded-xl hover:bg-white/10"
+                      className="text-3xl py-2 rounded-xl hover:bg-white/10 transition"
                     >
                       {s}
                     </button>
@@ -141,7 +155,7 @@ export default function Chat({ game, myId, open, onClose, unread }) {
                 <button
                   key={q}
                   onClick={() => send(q)}
-                  className="whitespace-nowrap px-3 py-2 rounded-full bg-white/5 border border-rose-glow/30 text-xs text-rose-soft hover:bg-rose-glow/20"
+                  className="whitespace-nowrap px-3 py-2 rounded-full bg-white/5 border border-rose-glow/30 text-xs text-rose-soft hover:bg-rose-glow/20 transition"
                 >
                   {q}
                 </button>
@@ -153,7 +167,7 @@ export default function Chat({ game, myId, open, onClose, unread }) {
           <div className="p-3 border-t border-rose-glow/20 flex items-center gap-2">
             <button
               onClick={() => setShowStickers((s) => !s)}
-              className="w-11 h-11 rounded-full bg-white/5 text-2xl"
+              className="w-11 h-11 rounded-full bg-white/5 text-2xl flex-shrink-0"
             >
               😊
             </button>
@@ -162,12 +176,12 @@ export default function Chat({ game, myId, open, onClose, unread }) {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && send(input)}
               placeholder="Type something sweet..."
-              className="flex-1 py-3 px-4 rounded-full bg-white/5 border border-rose-glow/30 text-white placeholder-rose-soft/40 outline-none focus:border-rose-glow"
+              className="flex-1 min-w-0 py-3 px-4 rounded-full bg-white/5 border border-rose-glow/30 text-white placeholder-rose-soft/40 outline-none focus:border-rose-glow transition"
             />
             <button
               onClick={() => send(input)}
               disabled={!input.trim()}
-              className="w-11 h-11 rounded-full bg-gradient-to-br from-rose-glow to-pink-600 text-white disabled:opacity-40"
+              className="w-11 h-11 rounded-full bg-gradient-to-br from-rose-glow to-pink-600 text-white disabled:opacity-40 flex-shrink-0 transition active:scale-95"
             >
               💌
             </button>

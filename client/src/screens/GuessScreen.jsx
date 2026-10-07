@@ -121,26 +121,33 @@ export default function GuessScreen({ round, myId, game }) {
     },
   }
 
+  // ---- I'm the picker — show waiting screen ----
   if (!iAmGuesser) {
     const mySecret =
       myId === game.player1_id ? round.player1_secret : round.player2_secret
 
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24 text-center">
-        <div className="text-7xl mb-4">⏳</div>
-        <h2 className="font-display text-3xl text-rose-soft mb-2">
-          Her turn to guess
-        </h2>
-        <p className="text-rose-soft/70 text-sm mb-6">
-          She's guessing your number
-        </p>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-md"
+        >
+          <div className="text-7xl mb-4">⏳</div>
+          <h2 className="font-display text-3xl text-rose-soft mb-2">
+            Minatallah's turn to guess
+          </h2>
+          <p className="text-rose-soft/70 text-sm mb-6">
+            She's guessing your number
+          </p>
 
-        <div className="bg-white/5 border border-rose-glow/30 rounded-2xl px-6 py-4">
-          <div className="text-[10px] text-rose-soft/60 uppercase tracking-widest mb-1">
-            Your secret number
+          <div className="bg-white/5 border border-rose-glow/30 rounded-2xl px-6 py-4 inline-block">
+            <div className="text-[10px] text-rose-soft/60 uppercase tracking-widest mb-1">
+              Your secret number
+            </div>
+            <div className="text-4xl font-black text-rose-glow">{mySecret}</div>
           </div>
-          <div className="text-4xl font-black text-rose-glow">{mySecret}</div>
-        </div>
+        </motion.div>
       </div>
     )
   }
@@ -160,7 +167,7 @@ export default function GuessScreen({ round, myId, game }) {
             Your turn 💘
           </h2>
           <p className="text-rose-soft/60 text-xs">
-            Guess her number (1–100)
+            Guess Minatallah's number (1–100)
           </p>
         </div>
 
@@ -282,7 +289,7 @@ export default function GuessScreen({ round, myId, game }) {
             <button
               onClick={submit}
               disabled={!guess || guessesLeft <= 0}
-              className="mt-4 w-full py-4 rounded-2xl bg-gradient-to-r from-rose-glow to-pink-600 text-white font-bold text-xl shadow-glow hover:scale-[1.02] disabled:opacity-40 transition"
+              className="mt-4 w-full py-4 rounded-2xl bg-gradient-to-r from-rose-glow to-pink-600 text-white font-bold text-xl shadow-glow hover:scale-[1.02] active:scale-95 disabled:opacity-40 transition"
             >
               GUESS 💘
             </button>

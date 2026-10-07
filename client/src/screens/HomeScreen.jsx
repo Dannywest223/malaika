@@ -19,12 +19,13 @@ export default function HomeScreen() {
           <div className="absolute inset-0 rounded-full bg-gradient-to-br from-rose-glow via-pink-400 to-purple-500 blur-2xl opacity-60 animate-pulse" />
           <div className="relative w-full h-full rounded-full overflow-hidden border-4 border-rose-glow/60 shadow-glow">
             <img
-              src="/malaika.jpg"
-              alt="Malaika"
+              src="/minatallah.jpg"
+              alt="Minatallah Emad Ahmed"
               className="w-full h-full object-cover"
               onError={(e) => {
                 e.target.style.display = 'none'
-                e.target.parentElement.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:64px">💕</div>'
+                e.target.parentElement.innerHTML =
+                  '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:64px">💕</div>'
               }}
             />
           </div>
@@ -32,8 +33,10 @@ export default function HomeScreen() {
         </div>
 
         {/* Names */}
-        <h1 className="font-display text-5xl text-center text-rose-soft mb-2 tracking-wide">
-          Danny <span className="text-rose-glow">&</span> Malaika
+        <h1 className="font-display text-4xl text-center text-rose-soft mb-2 tracking-wide leading-tight">
+          Danny <span className="text-rose-glow">&</span>
+          <br />
+          Minatallah Emad Ahmed
         </h1>
         <p className="text-center text-rose-soft/70 text-sm mb-8 italic">
           A game made just for you, my love 💘
@@ -43,7 +46,7 @@ export default function HomeScreen() {
         <div className="space-y-3">
           <button
             onClick={() => socket.emit('create_game')}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-glow to-pink-500 text-white font-bold text-lg shadow-glow hover:scale-[1.02] active:scale-95"
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-glow to-pink-500 text-white font-bold text-lg shadow-glow hover:scale-[1.02] active:scale-95 transition"
           >
             Create Our Game 💕
           </button>
@@ -57,9 +60,9 @@ export default function HomeScreen() {
           {!joining ? (
             <button
               onClick={() => setJoining(true)}
-              className="w-full py-4 rounded-2xl bg-white/5 border border-rose-glow/40 text-rose-soft font-semibold hover:bg-white/10"
+              className="w-full py-4 rounded-2xl bg-white/5 border border-rose-glow/40 text-rose-soft font-semibold hover:bg-white/10 transition"
             >
-              Join Her Game 💌
+              Join His Game 💌
             </button>
           ) : (
             <motion.div
@@ -72,13 +75,13 @@ export default function HomeScreen() {
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
                 placeholder="ENTER CODE"
                 maxLength={6}
-                className="w-full py-4 rounded-2xl bg-white/5 border border-rose-glow/40 text-center text-2xl tracking-[0.5em] text-white placeholder-rose-soft/30 outline-none focus:border-rose-glow"
+                className="w-full py-4 rounded-2xl bg-white/5 border border-rose-glow/40 text-center text-2xl tracking-[0.5em] text-white placeholder-rose-soft/30 outline-none focus:border-rose-glow transition"
                 autoFocus
               />
               <button
                 onClick={() => socket.emit('join_game', { gameId: code })}
                 disabled={code.length < 4}
-                className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-glow to-pink-500 text-white font-bold shadow-glow disabled:opacity-50"
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-glow to-pink-500 text-white font-bold shadow-glow disabled:opacity-50 transition"
               >
                 Join 💘
               </button>
@@ -87,7 +90,7 @@ export default function HomeScreen() {
         </div>
 
         <p className="text-center text-rose-soft/40 text-xs mt-8">
-          Made with 💗 by Danny for Malaika
+          Made with 💗 by Danny for Minatallah Emad Ahmed
         </p>
       </motion.div>
     </div>

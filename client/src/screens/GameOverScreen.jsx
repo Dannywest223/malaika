@@ -2,13 +2,13 @@ import { motion } from 'framer-motion'
 
 const FUNNY_YOU_WIN = [
   "You owe me a kiss for every point I won 💋",
-  "Malaika, this means I get to pick our next date 😏",
+  "Minatallah, this means I get to pick our next date 😏",
   "Looks like I know you better than you know me 😘",
   "Winner gets unlimited cuddles tonight — that's me 💕",
 ]
 
 const FUNNY_SHE_WINS = [
-  "Okay Malaika, you win this time... but only because I let you 😏",
+  "Okay Minatallah, you win this time... but only because I let you 😏",
   "You're too smart for me, and I love it 🥰",
   "I owe you dinner and dessert — you earned it, my love 💘",
   "My queen won. As always 👑💕",
@@ -20,7 +20,7 @@ const FUNNY_DRAW = [
   "We're literally the same person, it's official 😘",
 ]
 
-export default function GameOverScreen({ game, myId, onRematch }) {
+export default function GameOverScreen({ game, myId, onRematch, onNewGame }) {
   const myScore = myId === game.player1_id ? game.player1_score : game.player2_score
   const herScore = myId === game.player1_id ? game.player2_score : game.player1_score
 
@@ -51,24 +51,29 @@ export default function GameOverScreen({ game, myId, onRematch }) {
           Game Over
         </h1>
         <p className="text-rose-soft/60 text-sm mb-8">
-  20 rounds of love and competition 💕
-</p>
+          20 rounds of love and competition 💕
+        </p>
 
         {/* Final scores */}
         <div className="bg-gradient-to-br from-rose-glow/20 to-purple-500/10 border-2 border-rose-glow/40 rounded-3xl p-6 mb-6 shadow-glow">
           <div className="flex justify-around items-center">
             <div className="text-center">
-              <div className="text-rose-soft/60 text-xs mb-1">You</div>
+              <div className="text-rose-soft/60 text-xs mb-1">
+                {myId === game.player1_id ? 'Danny' : 'Minatallah'}
+              </div>
               <div className="text-5xl font-black text-rose-soft">{myScore}</div>
             </div>
             <div className="text-rose-glow text-3xl font-bold">vs</div>
             <div className="text-center">
-              <div className="text-rose-soft/60 text-xs mb-1">Malaika</div>
+              <div className="text-rose-soft/60 text-xs mb-1">
+                {myId === game.player1_id ? 'Minatallah' : 'Danny'}
+              </div>
               <div className="text-5xl font-black text-rose-soft">{herScore}</div>
             </div>
           </div>
         </div>
 
+        {/* Funny message */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -80,15 +85,25 @@ export default function GameOverScreen({ game, myId, onRematch }) {
           </p>
         </motion.div>
 
-        <button
-          onClick={onRematch}
-          className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-glow to-pink-600 text-white font-bold text-xl shadow-glow hover:scale-[1.02] transition"
-        >
-          Rematch 💘
-        </button>
+        {/* Buttons */}
+        <div className="space-y-3">
+          <button
+            onClick={onRematch}
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-glow to-pink-600 text-white font-bold text-xl shadow-glow hover:scale-[1.02] active:scale-95 transition"
+          >
+            Play Again 💘
+          </button>
 
-        <p className="text-rose-soft/40 text-xs mt-6">
-          Made with 💗 by Danny for Malaika
+          <button
+            onClick={onNewGame}
+            className="w-full py-3 rounded-2xl bg-white/5 border border-rose-glow/30 text-rose-soft/80 text-sm font-semibold hover:bg-white/10 active:scale-95 transition"
+          >
+            Start a fresh game 🔄
+          </button>
+        </div>
+
+        <p className="text-rose-soft/40 text-xs mt-8">
+          Made with 💗 by Danny for Minatallah Emad Ahmed
         </p>
       </motion.div>
     </div>

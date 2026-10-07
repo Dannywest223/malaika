@@ -23,7 +23,10 @@ const io = new Server(httpServer, {
   cors: { origin: '*' },
 })
 
-app.get('/', (req, res) => res.send('Guess My Number server is running 🚀'))
+app.get('/', (req, res) => res.send('Malaika server is running 🚀'))
+
+// Track both players' game selections so we only start when they match
+const gameSelections = {} // gameId -> { playerId: gameType }
 
 io.on('connection', (socket) => {
   console.log('✅ Connected:', socket.id)
@@ -50,6 +53,58 @@ io.on('connection', (socket) => {
     console.log('👥 Player joined:', gameId)
   })
 
+  // NEW: both players must select the same game to start
+  socket.on('select_game_type', ({ gameId, gameType }) => {
+    if (!gameSelections[gameId]) {
+      gameSelections[gameId] = {}
+    }
+    gameSelections[gameId][socket.id] = gameType
+
+    const game = getGame(gameId)
+    if (!game) return
+
+    const selections = gameSelections[gameId]
+    const playerIds = [game.player1_id, game.player2_id]
+
+    // Both selected the same game?
+    if (
+      playerIds.every((pid) => selections[pid]) &&
+      selections[game.player1_id] === selections[game.player2_id]
+    ) {
+      const chosenType = selections[game.player1_id]
+
+      // Save to DB
+      db.prepare('UPDATE games SET game_type = ? WHERE id = ?').run(
+        chosenType,
+        gameId
+      )
+
+      const updatedGame = getGame(gameId)
+
+      // Tell both players
+      io.to(gameId).emit('game_type_selected', {
+        gameType: chosenType,
+        game: updatedGame,
+      })
+
+      // For now, only the number game has a round flow
+      if (chosenType === 'number') {
+        const round = getCurrentRound(gameId) || nextRound(gameId)
+        if (round && !round.error) {
+          io.to(gameId).emit('round_started', round)
+        }
+      }
+
+      // Clear selection so a new selection can happen next time
+      delete gameSelections[gameId]
+
+      console.log('🎲 Game type selected:', chosenType, 'for', gameId)
+    } else {
+      // Let the other player know their partner picked something
+      socket.to(gameId).emit('partner_selected', { gameType })
+    }
+  })
+
   socket.on('pick_secret', ({ roundId, number }) => {
     const result = pickSecret(roundId, socket.id, number)
     if (result.error) {
@@ -72,10 +127,10 @@ io.on('connection', (socket) => {
       socket.emit('error_message', result.error)
       return
     }
-  
+
     const round = result.round
     const game = getGame(round.game_id)
-  
+
     if (result.roundEnded) {
       socket.emit('guess_feedback', {
         feedback: result.found ? 'correct' : 'wrong',

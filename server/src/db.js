@@ -5,15 +5,16 @@ const db = new Database('game.db')
 // Create tables if they don't exist
 db.exec(`
   CREATE TABLE IF NOT EXISTS games (
-    id TEXT PRIMARY KEY,
-    player1_id TEXT,
-    player2_id TEXT,
-    player1_score INTEGER DEFAULT 0,
-    player2_score INTEGER DEFAULT 0,
-    current_round INTEGER DEFAULT 1,
-    status TEXT DEFAULT 'waiting',
-    created_at INTEGER
-  );
+  id TEXT PRIMARY KEY,
+  player1_id TEXT,
+  player2_id TEXT,
+  player1_score INTEGER DEFAULT 0,
+  player2_score INTEGER DEFAULT 0,
+  current_round INTEGER DEFAULT 1,
+  status TEXT DEFAULT 'waiting',
+  game_type TEXT DEFAULT 'number',
+  created_at INTEGER
+);
 
   CREATE TABLE IF NOT EXISTS rounds (
     id TEXT PRIMARY KEY,

@@ -13,9 +13,6 @@ export default function PickScreen({ round, myId, game }) {
   const iAmPicker = myId === pickerId
   const iAmGuesser = myId === guesserId
 
-  const myScore = myId === game.player1_id ? game.player1_score : game.player2_score
-  const herScore = myId === game.player1_id ? game.player2_score : game.player1_score
-
   const submit = () => {
     const value = parseInt(num)
     if (!value || value < 1 || value > 100) {
@@ -26,6 +23,7 @@ export default function PickScreen({ round, myId, game }) {
     setWaiting(true)
   }
 
+  // ---- I'm the guesser, so it's HER turn to pick ----
   if (iAmGuesser) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24 text-center">
@@ -36,17 +34,22 @@ export default function PickScreen({ round, myId, game }) {
         >
           <div className="text-7xl mb-4">💭</div>
           <h2 className="font-display text-3xl text-rose-soft mb-2">
-            Her turn to pick
+            Minatallah's turn to pick
           </h2>
           <p className="text-rose-soft/70 text-sm">
             She's picking a number for you to guess 💕
           </p>
           <div className="mt-6 flex justify-center gap-1">
             {[0, 1, 2].map((i) => (
-              <div
+              <motion.div
                 key={i}
-                className="w-2 h-2 rounded-full bg-rose-glow animate-bounce"
-                style={{ animationDelay: `${i * 0.15}s` }}
+                animate={{ opacity: [0.3, 1, 0.3] }}
+                transition={{
+                  duration: 1.2,
+                  repeat: Infinity,
+                  delay: i * 0.2,
+                }}
+                className="w-2 h-2 rounded-full bg-rose-glow"
               />
             ))}
           </div>
@@ -55,20 +58,35 @@ export default function PickScreen({ round, myId, game }) {
     )
   }
 
+  // ---- I picked but she hasn't started guessing yet ----
   if (waiting) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24 text-center">
-        <div className="text-7xl mb-4">🔒</div>
-        <h2 className="font-display text-3xl text-rose-soft mb-2">
-          Number locked!
-        </h2>
-        <p className="text-rose-soft/70 text-sm">
-          Waiting for her to start guessing...
-        </p>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-md"
+        >
+          <div className="text-7xl mb-4">🔒</div>
+          <h2 className="font-display text-3xl text-rose-soft mb-2">
+            Number locked!
+          </h2>
+          <p className="text-rose-soft/70 text-sm mb-8">
+            Waiting for Minatallah to start guessing...
+          </p>
+
+          <div className="bg-white/5 border border-rose-glow/30 rounded-2xl px-6 py-4 inline-block">
+            <div className="text-[10px] text-rose-soft/60 uppercase tracking-widest mb-1">
+              Your secret number
+            </div>
+            <div className="text-4xl font-black text-rose-glow">{num}</div>
+          </div>
+        </motion.div>
       </div>
     )
   }
 
+  // ---- I'm the picker ----
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24">
       <motion.div
@@ -82,7 +100,7 @@ export default function PickScreen({ round, myId, game }) {
             Pick a secret number
           </h1>
           <p className="text-rose-soft/60 text-sm">
-            Between 1 and 100 — Malaika will try to guess it
+            Between 1 and 100 — Minatallah will try to guess it
           </p>
         </div>
 
@@ -91,6 +109,7 @@ export default function PickScreen({ round, myId, game }) {
           inputMode="numeric"
           value={num}
           onChange={(e) => setNum(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
           placeholder="?"
           className="w-full text-6xl text-center py-6 rounded-3xl bg-white/5 border-2 border-rose-glow/40 text-white font-black outline-none focus:border-rose-glow transition"
           autoFocus
@@ -99,10 +118,14 @@ export default function PickScreen({ round, myId, game }) {
         <button
           onClick={submit}
           disabled={!num}
-          className="mt-6 w-full py-5 rounded-2xl bg-gradient-to-r from-rose-glow to-pink-600 text-white font-bold text-xl shadow-glow hover:scale-[1.02] disabled:opacity-40 transition"
+          className="mt-6 w-full py-5 rounded-2xl bg-gradient-to-r from-rose-glow to-pink-600 text-white font-bold text-xl shadow-glow hover:scale-[1.02] active:scale-95 disabled:opacity-40 transition"
         >
           Lock it in 🔒
         </button>
+
+        <p className="text-center text-rose-soft/40 text-xs mt-4">
+          Tip: pick something she would never guess 😏
+        </p>
       </motion.div>
     </div>
   )
