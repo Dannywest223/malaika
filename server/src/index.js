@@ -45,12 +45,9 @@ io.on('connection', (socket) => {
       return
     }
     socket.join(gameId)
-
+  
     io.to(gameId).emit('game_started', result.game)
-
-    const round = getCurrentRound(gameId)
-    io.to(gameId).emit('round_started', round)
-    console.log('👥 Player joined:', gameId)
+    console.log('👥 Player joined — showing menu:', gameId)
   })
 
   // NEW: both players must select the same game to start

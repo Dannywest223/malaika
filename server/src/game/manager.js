@@ -27,7 +27,7 @@ export function joinGame(gameId, player2Id) {
     UPDATE games SET player2_id = ?, status = 'playing' WHERE id = ?
   `).run(player2Id, gameId)
 
-  startNewRound(gameId)
+  // Do NOT start the round here — wait until both players pick a game from the menu
   return { game: getGame(gameId) }
 }
 
