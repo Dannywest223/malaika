@@ -64,6 +64,15 @@ io.on('connection', (socket) => {
     console.log('👥 Player joined — showing menu:', gameId)
   })
 
+  // Reset game status so a new game can be picked (called from "Play Again")
+  socket.on('reset_game_status', ({ gameId }) => {
+    const game = getGame(gameId)
+    if (!game) return
+    db.prepare('UPDATE games SET status = ? WHERE id = ?').run('waiting', gameId)
+    delete gameSelections[gameId]
+    console.log('🔄 Reset game status:', gameId)
+  })
+
   socket.on('select_game_type', ({ gameId, gameType }) => {
     console.log(
       '🎯 select_game_type from',
@@ -77,9 +86,34 @@ io.on('connection', (socket) => {
     const existingGame = getGame(gameId)
     if (!existingGame) return
 
-    // Guard: if the game is already playing this type, ignore
-    if (existingGame.status === 'playing' && existingGame.game_type === gameType) {
-      console.log('   ⚠️ Already playing this game type, ignoring')
+    // ⚠️ Already playing → just resend current round, don't restart
+    if (existingGame.status === 'playing') {
+      console.log('   ⚠️ Game already playing, resending current round')
+
+      if (existingGame.game_type === 'wyr') {
+        const round = getCurrentWYRRound(gameId)
+        if (round && !round.error) {
+          socket.emit('wyr_game_started', { gameId })
+          socket.emit('wyr_round_started', round)
+        }
+      } else if (existingGame.game_type === 'knowme') {
+        const round = getCurrentKnowMeRound(gameId)
+        if (round && !round.error) {
+          socket.emit('knowme_game_started', { gameId })
+          socket.emit('knowme_round_started', round)
+        }
+      } else if (existingGame.game_type === 'truths') {
+        const round = getCurrentTruthsRound(gameId)
+        if (round && !round.error) {
+          socket.emit('truths_game_started', { gameId })
+          socket.emit('truths_round_started', round)
+        }
+      } else if (existingGame.game_type === 'number') {
+        const round = getCurrentRound(gameId)
+        if (round) {
+          socket.emit('round_started', round)
+        }
+      }
       return
     }
 
@@ -91,6 +125,15 @@ io.on('connection', (socket) => {
     const p1 = existingGame.player1_id
     const p2 = existingGame.player2_id
     const selections = gameSelections[gameId]
+
+    console.log(
+      '   selections:',
+      Object.keys(selections).map((k) => k.slice(-6) + ':' + selections[k]),
+      '| p1:',
+      p1?.slice(-6),
+      '| p2:',
+      p2?.slice(-6)
+    )
 
     if (selections[p1] && selections[p2] && selections[p1] === selections[p2]) {
       const chosenType = selections[p1]
@@ -220,7 +263,12 @@ io.on('connection', (socket) => {
     if (result.roundEnded) {
       const game = getGame(result.round.game_id)
       io.to(game.id).emit('wyr_round_ended', result)
-      console.log('💕 WYR round ended — matched:', result.matched)
+      console.log(
+        '💕 WYR round ended — matched:',
+        result.matched,
+        '| isGameOver:',
+        result.isGameOver
+      )
     } else {
       socket.emit('wyr_waiting_for_partner', { round: result.round })
     }
@@ -228,17 +276,19 @@ io.on('connection', (socket) => {
 
   socket.on('wyr_next_round', ({ gameId }) => {
     const round = nextWYRRound(gameId)
-    if (round.error) return
+    if (round.error) {
+      console.log('wyr_next_round (ignored):', round.error)
+      return
+    }
     io.to(gameId).emit('wyr_round_started', round)
     console.log('🔄 New WYR round:', round.round_number)
   })
 
-  // Fallback: client asks for current round if it never arrived
   socket.on('wyr_request_current_round', ({ gameId }) => {
     const round = getCurrentWYRRound(gameId)
     if (round && !round.error) {
       socket.emit('wyr_round_started', round)
-      console.log('📤 Resent current WYR round to', socket.id.slice(-6))
+      console.log('📤 Resent WYR round to', socket.id.slice(-6))
     }
   })
 
@@ -263,12 +313,7 @@ io.on('connection', (socket) => {
     }
     const game = getGame(result.round.game_id)
     io.to(game.id).emit('knowme_round_ended', result)
-    console.log(
-      '🧠 Know Me — correct:',
-      result.correct,
-      '| points:',
-      result.points
-    )
+    console.log('🧠 Know Me — correct:', result.correct, '| points:', result.points)
   })
 
   socket.on('knowme_next_round', ({ gameId }) => {
@@ -282,7 +327,7 @@ io.on('connection', (socket) => {
     const round = getCurrentKnowMeRound(gameId)
     if (round && !round.error) {
       socket.emit('knowme_round_started', round)
-      console.log('📤 Resent current Know Me round to', socket.id.slice(-6))
+      console.log('📤 Resent Know Me round to', socket.id.slice(-6))
     }
   })
 
@@ -307,12 +352,7 @@ io.on('connection', (socket) => {
     }
     const game = getGame(result.round.game_id)
     io.to(game.id).emit('truths_round_ended', result)
-    console.log(
-      '😂 Truths guess — correct:',
-      result.correct,
-      '| points:',
-      result.points
-    )
+    console.log('😂 Truths — correct:', result.correct, '| points:', result.points)
   })
 
   socket.on('truths_next_round', ({ gameId }) => {
@@ -326,7 +366,7 @@ io.on('connection', (socket) => {
     const round = getCurrentTruthsRound(gameId)
     if (round && !round.error) {
       socket.emit('truths_round_started', round)
-      console.log('📤 Resent current Truths round to', socket.id.slice(-6))
+      console.log('📤 Resent Truths round to', socket.id.slice(-6))
     }
   })
 

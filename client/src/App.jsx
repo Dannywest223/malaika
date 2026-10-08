@@ -193,6 +193,9 @@ export default function App() {
   const closeChat = () => setChatOpen(false)
 
   const handleRematch = () => {
+    if (game) {
+      socket.emit('reset_game_status', { gameId: game.id })
+    }
     setRound(null)
     setRoundResult(null)
     setGameType(null)
