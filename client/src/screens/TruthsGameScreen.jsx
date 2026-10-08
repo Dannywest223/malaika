@@ -87,6 +87,7 @@ export default function TruthsGameScreen({ game, myId, round: initialRound, setS
   }, [result])
 
   const submitStatements = () => {
+    if (!round) return
     if (statements.some((s) => !s.trim())) return
     if (lieIndex === null) return
     socket.emit('truths_submit_statements', {
@@ -98,6 +99,7 @@ export default function TruthsGameScreen({ game, myId, round: initialRound, setS
   }
 
   const submitGuess = (idx) => {
+    if (!round) return
     if (pickedIndex !== null || result) return
     setPickedIndex(idx)
     socket.emit('truths_submit_guess', { roundId: round.id, pickIndex: idx })
@@ -122,14 +124,18 @@ export default function TruthsGameScreen({ game, myId, round: initialRound, setS
 
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24 text-center relative overflow-hidden">
-        {/* Floating reactions */}
         <div className="fixed inset-0 pointer-events-none z-40">
           <AnimatePresence>
             {floatingReactions.map((fr) => (
               <motion.div
                 key={fr.id}
                 initial={{ y: 0, opacity: 0, scale: 0.5 }}
-                animate={{ y: -400, opacity: [0, 1, 1, 0], scale: 1.5, rotate: Math.random() * 40 - 20 }}
+                animate={{
+                  y: -400,
+                  opacity: [0, 1, 1, 0],
+                  scale: 1.5,
+                  rotate: Math.random() * 40 - 20,
+                }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 3 }}
                 className="absolute bottom-20 text-5xl"
@@ -220,7 +226,6 @@ export default function TruthsGameScreen({ game, myId, round: initialRound, setS
             </div>
           </div>
 
-          {/* Reactions */}
           <div className="bg-white/5 border border-rose-glow/30 rounded-2xl p-3 mb-4">
             <div className="text-[10px] text-rose-soft/60 uppercase tracking-widest mb-2">
               React
@@ -245,7 +250,6 @@ export default function TruthsGameScreen({ game, myId, round: initialRound, setS
               : `Round ${round.round_number + 1} starting...`}
           </p>
 
-          {/* Progress bar */}
           {!result.isGameOver && (
             <div className="mt-4 h-1 bg-white/5 rounded-full overflow-hidden">
               <motion.div
@@ -257,6 +261,28 @@ export default function TruthsGameScreen({ game, myId, round: initialRound, setS
             </div>
           )}
         </motion.div>
+      </div>
+    )
+  }
+
+  // ---- Loading state (round not yet received) ----
+  if (!round) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24 text-center">
+        <div className="text-7xl mb-4 animate-pulse">⏳</div>
+        <h2 className="font-display text-2xl text-rose-soft mb-2">
+          Loading round...
+        </h2>
+        <div className="flex justify-center gap-1 mt-4">
+          {[0, 1, 2].map((i) => (
+            <motion.div
+              key={i}
+              animate={{ opacity: [0.3, 1, 0.3] }}
+              transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
+              className="w-2 h-2 rounded-full bg-rose-glow"
+            />
+          ))}
+        </div>
       </div>
     )
   }

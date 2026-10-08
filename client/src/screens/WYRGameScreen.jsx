@@ -16,12 +16,10 @@ export default function WYRGameScreen({ game, myId, round: initialRound, setScre
       setMyChoice(null)
       setResult(null)
     }
-
     const onRoundEnd = (res) => {
       setResult(res)
       setRound(res.round)
     }
-
     socket.on('wyr_round_started', onRoundStart)
     socket.on('wyr_round_ended', onRoundEnd)
     return () => {
@@ -32,13 +30,10 @@ export default function WYRGameScreen({ game, myId, round: initialRound, setScre
 
   useEffect(() => {
     if (!result) return
-    const isGameOver = result.isGameOver
-
-    if (isGameOver) {
+    if (result.isGameOver) {
       const t = setTimeout(() => setScreen('gameOver'), 3500)
       return () => clearTimeout(t)
     }
-
     const t = setTimeout(() => {
       socket.emit('wyr_next_round', { gameId: game.id })
     }, 3500)
@@ -46,12 +41,13 @@ export default function WYRGameScreen({ game, myId, round: initialRound, setScre
   }, [result])
 
   const choose = (choice) => {
+    if (!round) return
     if (myChoice || result) return
     setMyChoice(choice)
     socket.emit('wyr_submit_choice', { roundId: round.id, choice })
   }
 
-  // ---- Reveal view ----
+  // ---- Result screen ----
   if (result) {
     const p1Choice = result.round.player1_choice
     const p2Choice = result.round.player2_choice
@@ -79,12 +75,10 @@ export default function WYRGameScreen({ game, myId, round: initialRound, setScre
           >
             {matched ? 'You matched!' : 'Different choices'}
           </h1>
-
           <p className="text-rose-soft/70 text-sm mb-6">
             {matched ? '+5 points for both 💕' : 'No points this round'}
           </p>
 
-          {/* Both picks */}
           <div className="space-y-3 mb-6">
             <div className="bg-white/5 border-2 border-rose-glow/40 rounded-2xl p-4 text-left">
               <div className="text-[10px] text-rose-soft/60 uppercase tracking-widest mb-1">
@@ -92,24 +86,30 @@ export default function WYRGameScreen({ game, myId, round: initialRound, setScre
               </div>
               <div className="text-rose-soft font-bold">
                 {myId === game.player1_id
-                  ? p1Choice === 'a' ? round.option_a : round.option_b
-                  : p2Choice === 'a' ? round.option_a : round.option_b}
+                  ? p1Choice === 'a'
+                    ? round.option_a
+                    : round.option_b
+                  : p2Choice === 'a'
+                  ? round.option_a
+                  : round.option_b}
               </div>
             </div>
-
             <div className="bg-white/5 border-2 border-rose-glow/40 rounded-2xl p-4 text-left">
               <div className="text-[10px] text-rose-soft/60 uppercase tracking-widest mb-1">
                 Their pick
               </div>
               <div className="text-rose-soft font-bold">
                 {myId === game.player1_id
-                  ? p2Choice === 'a' ? round.option_a : round.option_b
-                  : p1Choice === 'a' ? round.option_a : round.option_b}
+                  ? p2Choice === 'a'
+                    ? round.option_a
+                    : round.option_b
+                  : p1Choice === 'a'
+                  ? round.option_a
+                  : round.option_b}
               </div>
             </div>
           </div>
 
-          {/* Score */}
           <div className="bg-white/5 rounded-2xl p-5 mb-6 border border-rose-glow/30">
             <div className="text-[10px] text-rose-soft/60 uppercase tracking-widest mb-3">
               Running Total
@@ -132,12 +132,45 @@ export default function WYRGameScreen({ game, myId, round: initialRound, setScre
               ? 'Final results coming...'
               : `Round ${round.round_number + 1} starting...`}
           </p>
+
+          {!result.isGameOver && (
+            <div className="mt-4 h-1 bg-white/5 rounded-full overflow-hidden">
+              <motion.div
+                initial={{ width: '0%' }}
+                animate={{ width: '100%' }}
+                transition={{ duration: 3.5, ease: 'linear' }}
+                className="h-full bg-gradient-to-r from-rose-glow to-pink-500"
+              />
+            </div>
+          )}
         </motion.div>
       </div>
     )
   }
 
-  // ---- Picking view ----
+  // ---- Loading state ----
+  if (!round) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24 text-center">
+        <div className="text-7xl mb-4 animate-pulse">💕</div>
+        <h2 className="font-display text-2xl text-rose-soft mb-2">
+          Loading question...
+        </h2>
+        <div className="flex justify-center gap-1 mt-4">
+          {[0, 1, 2].map((i) => (
+            <motion.div
+              key={i}
+              animate={{ opacity: [0.3, 1, 0.3] }}
+              transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
+              className="w-2 h-2 rounded-full bg-rose-glow"
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // ---- Picking phase ----
   const iHaveChosen = myChoice !== null
 
   return (
@@ -207,7 +240,11 @@ export default function WYRGameScreen({ game, myId, round: initialRound, setScre
                 <motion.div
                   key={i}
                   animate={{ opacity: [0.3, 1, 0.3] }}
-                  transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
+                  transition={{
+                    duration: 1.2,
+                    repeat: Infinity,
+                    delay: i * 0.2,
+                  }}
                   className="w-1.5 h-1.5 rounded-full bg-rose-glow"
                 />
               ))}

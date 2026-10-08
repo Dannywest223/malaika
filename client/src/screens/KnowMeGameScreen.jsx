@@ -51,12 +51,14 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
   }, [result])
 
   const submitAnswers = () => {
+    if (!round) return
     if (answers.some((a) => !a.trim())) return
     socket.emit('knowme_submit_answers', { roundId: round.id, answers })
     setSubmitted(true)
   }
 
   const submitGuesses = () => {
+    if (!round) return
     if (guesses.some((g) => !g.trim())) return
     socket.emit('knowme_submit_guesses', { roundId: round.id, guesses })
     setSubmitted(true)
@@ -82,7 +84,9 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
             {correct}/3 correct
           </h1>
           <p className="text-rose-soft/70 text-sm mb-6">
-            {isGuesser ? `+${result.points} points for you` : `${result.points} points for Minatallah`}
+            {isGuesser
+              ? `+${result.points} points for you`
+              : `${result.points} points for Minatallah`}
           </p>
 
           <div className="space-y-3 mb-6">
@@ -90,7 +94,8 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
               const q = r[`question_${i + 1}`]
               const a = r[`answer_${i + 1}`]
               const g = r[`guess_${i + 1}`]
-              const isCorrect = (a || '').toLowerCase().trim() === (g || '').toLowerCase().trim()
+              const isCorrect =
+                (a || '').toLowerCase().trim() === (g || '').toLowerCase().trim()
               return (
                 <div
                   key={i}
@@ -109,7 +114,13 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
                   </div>
                   <div className="text-sm">
                     <span className="text-rose-soft/60">Guess: </span>
-                    <span className={isCorrect ? 'text-green-400 font-bold' : 'text-red-400 font-bold'}>
+                    <span
+                      className={
+                        isCorrect
+                          ? 'text-green-400 font-bold'
+                          : 'text-red-400 font-bold'
+                      }
+                    >
                       {g} {isCorrect ? '✅' : '❌'}
                     </span>
                   </div>
@@ -136,9 +147,33 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
           </div>
 
           <p className="text-rose-soft/40 text-xs">
-            {result.isGameOver ? 'Final results coming...' : `Round ${round.round_number + 1} starting...`}
+            {result.isGameOver
+              ? 'Final results coming...'
+              : `Round ${round.round_number + 1} starting...`}
           </p>
         </motion.div>
+      </div>
+    )
+  }
+
+  // ---- Loading state ----
+  if (!round) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24 text-center">
+        <div className="text-7xl mb-4 animate-pulse">🧠</div>
+        <h2 className="font-display text-2xl text-rose-soft mb-2">
+          Loading round...
+        </h2>
+        <div className="flex justify-center gap-1 mt-4">
+          {[0, 1, 2].map((i) => (
+            <motion.div
+              key={i}
+              animate={{ opacity: [0.3, 1, 0.3] }}
+              transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
+              className="w-2 h-2 rounded-full bg-rose-glow"
+            />
+          ))}
+        </div>
       </div>
     )
   }
@@ -195,7 +230,7 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
     )
   }
 
-  // ---- Guesser waiting / guessing phase ----
+  // ---- Guesser guessing phase ----
   if (!isSubject && round.status === 'guessing') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24">
@@ -247,7 +282,7 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
     )
   }
 
-  // ---- Waiting screens ----
+  // ---- Waiting screen ----
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24 text-center">
       <div className="text-7xl mb-4 animate-pulse">⏳</div>
