@@ -38,6 +38,16 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
     }
   }, [])
 
+  // Fallback: if the round never arrives, ask the server for it
+  useEffect(() => {
+    if (round) return
+    const t = setTimeout(() => {
+      console.log('⏰ Know Me round missing, requesting...')
+      socket.emit('knowme_request_current_round', { gameId: game.id })
+    }, 2500)
+    return () => clearTimeout(t)
+  }, [round, game.id])
+
   useEffect(() => {
     if (!result) return
     if (result.isGameOver) {

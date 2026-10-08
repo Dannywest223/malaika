@@ -18,10 +18,12 @@ import {
   submitWYRChoice,
   nextWYRRound,
   startKnowMeGame,
+  getCurrentKnowMeRound,
   submitKnowMeAnswers,
   submitKnowMeGuesses,
   nextKnowMeRound,
   startTruthsGame,
+  getCurrentTruthsRound,
   submitTruths,
   submitTruthsGuess,
   nextTruthsRound,
@@ -72,24 +74,34 @@ io.on('connection', (socket) => {
       gameId
     )
 
+    const existingGame = getGame(gameId)
+    if (!existingGame) return
+
+    // Guard: if the game is already playing this type, ignore
+    if (existingGame.status === 'playing' && existingGame.game_type === gameType) {
+      console.log('   ⚠️ Already playing this game type, ignoring')
+      return
+    }
+
     if (!gameSelections[gameId]) {
       gameSelections[gameId] = {}
     }
     gameSelections[gameId][socket.id] = gameType
 
-    const game = getGame(gameId)
-    if (!game) return
-
+    const p1 = existingGame.player1_id
+    const p2 = existingGame.player2_id
     const selections = gameSelections[gameId]
-    const p1 = game.player1_id
-    const p2 = game.player2_id
 
     if (selections[p1] && selections[p2] && selections[p1] === selections[p2]) {
       const chosenType = selections[p1]
       console.log('   ✅ Both picked', chosenType, '— starting game')
 
-      db.prepare('UPDATE games SET game_type = ? WHERE id = ?').run(
+      // ⚠️ Clear selections IMMEDIATELY to prevent double-fire
+      delete gameSelections[gameId]
+
+      db.prepare('UPDATE games SET game_type = ?, status = ? WHERE id = ?').run(
         chosenType,
+        'playing',
         gameId
       )
 
@@ -135,8 +147,6 @@ io.on('connection', (socket) => {
           }
         }
       }, 500)
-
-      delete gameSelections[gameId]
     } else {
       socket.to(gameId).emit('partner_selected', { gameType })
     }
@@ -200,16 +210,6 @@ io.on('connection', (socket) => {
 
   // ---------- WOULD YOU RATHER ----------
 
-  socket.on('wyr_start', ({ gameId }) => {
-    const round = startWYRGame(gameId)
-    if (round.error) {
-      socket.emit('error_message', round.error)
-      return
-    }
-    io.to(gameId).emit('wyr_game_started', { gameId })
-    io.to(gameId).emit('wyr_round_started', round)
-  })
-
   socket.on('wyr_submit_choice', ({ roundId, choice }) => {
     const result = submitWYRChoice(roundId, socket.id, choice)
     if (result.error) {
@@ -231,6 +231,15 @@ io.on('connection', (socket) => {
     if (round.error) return
     io.to(gameId).emit('wyr_round_started', round)
     console.log('🔄 New WYR round:', round.round_number)
+  })
+
+  // Fallback: client asks for current round if it never arrived
+  socket.on('wyr_request_current_round', ({ gameId }) => {
+    const round = getCurrentWYRRound(gameId)
+    if (round && !round.error) {
+      socket.emit('wyr_round_started', round)
+      console.log('📤 Resent current WYR round to', socket.id.slice(-6))
+    }
   })
 
   // ---------- HOW WELL DO YOU KNOW ME ----------
@@ -269,6 +278,14 @@ io.on('connection', (socket) => {
     console.log('🔄 New Know Me round:', round.round_number)
   })
 
+  socket.on('knowme_request_current_round', ({ gameId }) => {
+    const round = getCurrentKnowMeRound(gameId)
+    if (round && !round.error) {
+      socket.emit('knowme_round_started', round)
+      console.log('📤 Resent current Know Me round to', socket.id.slice(-6))
+    }
+  })
+
   // ---------- TWO TRUTHS AND A LIE ----------
 
   socket.on('truths_submit_statements', ({ roundId, statements, lieIndex }) => {
@@ -303,6 +320,14 @@ io.on('connection', (socket) => {
     if (round.error) return
     io.to(gameId).emit('truths_round_started', round)
     console.log('🔄 New Truths round:', round.round_number)
+  })
+
+  socket.on('truths_request_current_round', ({ gameId }) => {
+    const round = getCurrentTruthsRound(gameId)
+    if (round && !round.error) {
+      socket.emit('truths_round_started', round)
+      console.log('📤 Resent current Truths round to', socket.id.slice(-6))
+    }
   })
 
   socket.on('truths_reaction', ({ gameId, emoji }) => {

@@ -74,6 +74,16 @@ export default function TruthsGameScreen({ game, myId, round: initialRound, setS
     }
   }, [])
 
+  // Fallback: if the round never arrives, ask the server for it
+  useEffect(() => {
+    if (round) return
+    const t = setTimeout(() => {
+      console.log('⏰ Truths round missing, requesting...')
+      socket.emit('truths_request_current_round', { gameId: game.id })
+    }, 2500)
+    return () => clearTimeout(t)
+  }, [round, game.id])
+
   useEffect(() => {
     if (!result) return
     if (result.isGameOver) {
@@ -265,7 +275,7 @@ export default function TruthsGameScreen({ game, myId, round: initialRound, setS
     )
   }
 
-  // ---- Loading state (round not yet received) ----
+  // ---- Loading state ----
   if (!round) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24 text-center">

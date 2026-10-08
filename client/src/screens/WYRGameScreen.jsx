@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { socket } from '../socket'
 
 export default function WYRGameScreen({ game, myId, round: initialRound, setScreen }) {
@@ -27,6 +27,16 @@ export default function WYRGameScreen({ game, myId, round: initialRound, setScre
       socket.off('wyr_round_ended', onRoundEnd)
     }
   }, [])
+
+  // Fallback: if the round never arrives, ask the server for it
+  useEffect(() => {
+    if (round) return
+    const t = setTimeout(() => {
+      console.log('⏰ WYR round missing, requesting...')
+      socket.emit('wyr_request_current_round', { gameId: game.id })
+    }, 2500)
+    return () => clearTimeout(t)
+  }, [round, game.id])
 
   useEffect(() => {
     if (!result) return
