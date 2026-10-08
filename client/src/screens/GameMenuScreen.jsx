@@ -19,7 +19,7 @@ const GAMES = [
     title: 'Would You Rather',
     subtitle: 'Do you two think the same?',
     duration: '20 rounds',
-    ready: false,
+    ready: true,
     gradient: 'from-pink-500/20 to-purple-500/20',
     border: 'border-pink-500/40',
   },
@@ -29,7 +29,7 @@ const GAMES = [
     title: 'How Well Do You Know Me',
     subtitle: 'Do you really know each other?',
     duration: '20 rounds',
-    ready: false,
+    ready: true,
     gradient: 'from-purple-500/20 to-rose-glow/20',
     border: 'border-purple-500/40',
   },
@@ -39,7 +39,7 @@ const GAMES = [
     title: 'Two Truths and a Lie',
     subtitle: 'Spot the fake',
     duration: '20 rounds',
-    ready: false,
+    ready: true,
     gradient: 'from-rose-glow/20 to-pink-600/20',
     border: 'border-rose-glow/40',
   },
@@ -50,7 +50,7 @@ export default function GameMenuScreen({ game, myId }) {
   const [waitingForPartner, setWaitingForPartner] = useState(false)
 
   const chooseGame = (gameType) => {
-    if (selectedGame) return // already picked
+    if (selectedGame) return
     setSelectedGame(gameType)
     setWaitingForPartner(true)
     socket.emit('select_game_type', { gameId: game.id, gameType })
@@ -63,7 +63,6 @@ export default function GameMenuScreen({ game, myId }) {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
-        {/* Header */}
         <div className="text-center mb-8">
           <motion.div
             animate={{ scale: [1, 1.1, 1] }}
@@ -80,7 +79,6 @@ export default function GameMenuScreen({ game, myId }) {
           </p>
         </div>
 
-        {/* Game cards */}
         <div className="space-y-3">
           {GAMES.map((g) => {
             const isSelected = selectedGame === g.id
@@ -135,7 +133,6 @@ export default function GameMenuScreen({ game, myId }) {
           })}
         </div>
 
-        {/* Waiting message */}
         {waitingForPartner && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}

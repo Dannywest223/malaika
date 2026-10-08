@@ -50,6 +50,51 @@ db.exec(`
     type TEXT DEFAULT 'text',
     created_at INTEGER
   );
+
+  CREATE TABLE IF NOT EXISTS wyr_rounds (
+  id TEXT PRIMARY KEY,
+  game_id TEXT,
+  round_number INTEGER,
+  option_a TEXT,
+  option_b TEXT,
+  player1_choice TEXT,
+  player2_choice TEXT,
+  status TEXT DEFAULT 'picking',
+  created_at INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS knowme_rounds (
+  id TEXT PRIMARY KEY,
+  game_id TEXT,
+  round_number INTEGER,
+  subject_id TEXT,
+  question_1 TEXT,
+  question_2 TEXT,
+  question_3 TEXT,
+  answer_1 TEXT,
+  answer_2 TEXT,
+  answer_3 TEXT,
+  guess_1 TEXT,
+  guess_2 TEXT,
+  guess_3 TEXT,
+  status TEXT DEFAULT 'answering',
+  created_at INTEGER
+);
+CREATE TABLE IF NOT EXISTS truths_rounds (
+  id TEXT PRIMARY KEY,
+  game_id TEXT,
+  round_number INTEGER,
+  writer_id TEXT,
+  statement_1 TEXT,
+  statement_2 TEXT,
+  statement_3 TEXT,
+  lie_index INTEGER,
+  shuffled_order TEXT,
+  guesser_pick INTEGER,
+  status TEXT DEFAULT 'writing',
+  created_at INTEGER
+);
+
 `)
 
 export default db

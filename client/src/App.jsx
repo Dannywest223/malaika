@@ -13,6 +13,9 @@ import PickScreen from './screens/PickScreen'
 import GuessScreen from './screens/GuessScreen'
 import RoundEndScreen from './screens/RoundEndScreen'
 import GameOverScreen from './screens/GameOverScreen'
+import WYRGameScreen from './screens/WYRGameScreen'
+import KnowMeGameScreen from './screens/KnowMeGameScreen'
+import TruthsGameScreen from './screens/TruthsGameScreen'
 
 export default function App() {
   const [screen, setScreen] = useState('home')
@@ -21,7 +24,10 @@ export default function App() {
   const [roundResult, setRoundResult] = useState(null)
   const [myId, setMyId] = useState(socket.id)
   const [connected, setConnected] = useState(socket.connected)
-  const [gameType, setGameType] = useState(null) // 'number' | 'wyr' | 'knowme' | 'truths'
+  const [gameType, setGameType] = useState(null)
+  const [wyrRound, setWyrRound] = useState(null)
+  const [knowMeRound, setKnowMeRound] = useState(null)
+  const [truthsRound, setTruthsRound] = useState(null)
 
   const [chatOpen, setChatOpen] = useState(false)
   const [unread, setUnread] = useState(0)
@@ -55,7 +61,6 @@ export default function App() {
 
     socket.on('game_started', (g) => {
       setGame(g)
-      // Both players now go to the game menu to choose
       setScreen('menu')
     })
 
@@ -64,6 +69,11 @@ export default function App() {
       setGame(g)
     })
 
+    socket.on('partner_selected', ({ gameType: gt }) => {
+      console.log('👀 Partner selected:', gt)
+    })
+
+    // ---- Guess My Number ----
     socket.on('round_started', (r) => {
       setRound(r)
       setRoundResult(null)
@@ -79,10 +89,6 @@ export default function App() {
       setRound(r)
     })
 
-    socket.on('opponent_guessed', ({ round: r }) => {
-      setRound(r)
-    })
-
     socket.on('round_ended', (result) => {
       setRound(result.round)
       setGame(result.game)
@@ -90,7 +96,59 @@ export default function App() {
       setScreen('roundEnd')
     })
 
-    socket.on('error_message', (msg) => alert(msg))
+    // ---- Would You Rather ----
+    socket.on('wyr_game_started', () => {
+      setScreen('wyr')
+    })
+
+    socket.on('wyr_round_started', (r) => {
+      setWyrRound(r)
+      setScreen('wyr')
+    })
+
+    socket.on('wyr_round_ended', (result) => {
+      setGame(result.game)
+    })
+
+    // ---- How Well Do You Know Me ----
+    socket.on('knowme_game_started', () => {
+      setScreen('knowme')
+    })
+
+    socket.on('knowme_round_started', (r) => {
+      setKnowMeRound(r)
+      setScreen('knowme')
+    })
+
+    socket.on('knowme_answers_submitted', (r) => {
+      setKnowMeRound(r)
+    })
+
+    socket.on('knowme_round_ended', (result) => {
+      setGame(result.game)
+    })
+
+    // ---- Two Truths and a Lie ----
+    socket.on('truths_game_started', () => {
+      setScreen('truths')
+    })
+
+    socket.on('truths_round_started', (r) => {
+      setTruthsRound(r)
+      setScreen('truths')
+    })
+
+    socket.on('truths_statements_submitted', (r) => {
+      setTruthsRound(r)
+    })
+
+    socket.on('truths_round_ended', (result) => {
+      setGame(result.game)
+    })
+
+    socket.on('error_message', (msg) => {
+      console.log('⚠️ server error:', msg)
+    })
 
     socket.on('new_message', (msg) => {
       if (msg.sender_id === socket.id) return
@@ -103,6 +161,27 @@ export default function App() {
     return () => {
       socket.off('connect', onConnect)
       socket.off('disconnect', onDisconnect)
+      socket.off('game_created')
+      socket.off('game_started')
+      socket.off('game_type_selected')
+      socket.off('partner_selected')
+      socket.off('round_started')
+      socket.off('round_ready')
+      socket.off('guess_feedback')
+      socket.off('round_ended')
+      socket.off('wyr_game_started')
+      socket.off('wyr_round_started')
+      socket.off('wyr_round_ended')
+      socket.off('knowme_game_started')
+      socket.off('knowme_round_started')
+      socket.off('knowme_answers_submitted')
+      socket.off('knowme_round_ended')
+      socket.off('truths_game_started')
+      socket.off('truths_round_started')
+      socket.off('truths_statements_submitted')
+      socket.off('truths_round_ended')
+      socket.off('error_message')
+      socket.off('new_message')
     }
   }, [])
 
@@ -111,23 +190,26 @@ export default function App() {
     setUnread(0)
     setToast(null)
   }
-
   const closeChat = () => setChatOpen(false)
 
-  // Rematch → back to game menu so you two can pick a different game
   const handleRematch = () => {
     setRound(null)
     setRoundResult(null)
     setGameType(null)
+    setWyrRound(null)
+    setKnowMeRound(null)
+    setTruthsRound(null)
     setScreen('menu')
   }
 
-  // Full reset → back to home (new game code)
   const handleNewGame = () => {
     setGame(null)
     setRound(null)
     setRoundResult(null)
     setGameType(null)
+    setWyrRound(null)
+    setKnowMeRound(null)
+    setTruthsRound(null)
     setScreen('home')
     socket.emit('create_game')
   }
@@ -167,11 +249,7 @@ export default function App() {
       <div className="relative z-10">
         {screen === 'home' && <HomeScreen />}
         {screen === 'lobby' && <LobbyScreen game={game} />}
-
-        {screen === 'menu' && (
-          <GameMenuScreen game={game} myId={myId} />
-        )}
-
+        {screen === 'menu' && <GameMenuScreen game={game} myId={myId} />}
         {screen === 'pick' && (
           <PickScreen round={round} myId={myId} game={game} />
         )}
@@ -185,6 +263,30 @@ export default function App() {
             myId={myId}
             setScreen={setScreen}
             roundResult={roundResult}
+          />
+        )}
+        {screen === 'wyr' && (
+          <WYRGameScreen
+            game={game}
+            myId={myId}
+            round={wyrRound}
+            setScreen={setScreen}
+          />
+        )}
+        {screen === 'knowme' && (
+          <KnowMeGameScreen
+            game={game}
+            myId={myId}
+            round={knowMeRound}
+            setScreen={setScreen}
+          />
+        )}
+        {screen === 'truths' && (
+          <TruthsGameScreen
+            game={game}
+            myId={myId}
+            round={truthsRound}
+            setScreen={setScreen}
           />
         )}
         {screen === 'gameOver' && (
