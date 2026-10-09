@@ -86,35 +86,52 @@ io.on('connection', (socket) => {
     const existingGame = getGame(gameId)
     if (!existingGame) return
 
-    // ⚠️ Already playing → just resend current round, don't restart
+    // ⚠️ If status is 'playing', check if an active round exists.
+    // If yes → resend it. If no → reset the game and continue below.
     if (existingGame.status === 'playing') {
-      console.log('   ⚠️ Game already playing, resending current round')
+      console.log('   ⚠️ Game status is "playing" — checking for active round')
 
+      let activeRound = null
       if (existingGame.game_type === 'wyr') {
-        const round = getCurrentWYRRound(gameId)
-        if (round && !round.error) {
+        activeRound = getCurrentWYRRound(gameId)
+        if (activeRound && !activeRound.error) {
           socket.emit('wyr_game_started', { gameId })
-          socket.emit('wyr_round_started', round)
+          socket.emit('wyr_round_started', activeRound)
+          console.log('   📤 Resent active WYR round')
+          return
         }
       } else if (existingGame.game_type === 'knowme') {
-        const round = getCurrentKnowMeRound(gameId)
-        if (round && !round.error) {
+        activeRound = getCurrentKnowMeRound(gameId)
+        if (activeRound && !activeRound.error) {
           socket.emit('knowme_game_started', { gameId })
-          socket.emit('knowme_round_started', round)
+          socket.emit('knowme_round_started', activeRound)
+          console.log('   📤 Resent active Know Me round')
+          return
         }
       } else if (existingGame.game_type === 'truths') {
-        const round = getCurrentTruthsRound(gameId)
-        if (round && !round.error) {
+        activeRound = getCurrentTruthsRound(gameId)
+        if (activeRound && !activeRound.error) {
           socket.emit('truths_game_started', { gameId })
-          socket.emit('truths_round_started', round)
+          socket.emit('truths_round_started', activeRound)
+          console.log('   📤 Resent active Truths round')
+          return
         }
       } else if (existingGame.game_type === 'number') {
-        const round = getCurrentRound(gameId)
-        if (round) {
-          socket.emit('round_started', round)
+        activeRound = getCurrentRound(gameId)
+        if (activeRound) {
+          socket.emit('round_started', activeRound)
+          console.log('   📤 Resent active Number round')
+          return
         }
       }
-      return
+
+      // No active round → reset and fall through
+      console.log('   ⚠️ No active round found — resetting game status')
+      db.prepare('UPDATE games SET status = ? WHERE id = ?').run(
+        'waiting',
+        gameId
+      )
+      existingGame.status = 'waiting'
     }
 
     if (!gameSelections[gameId]) {
@@ -139,7 +156,7 @@ io.on('connection', (socket) => {
       const chosenType = selections[p1]
       console.log('   ✅ Both picked', chosenType, '— starting game')
 
-      // ⚠️ Clear selections IMMEDIATELY to prevent double-fire
+      // Clear selections IMMEDIATELY to prevent double-fire
       delete gameSelections[gameId]
 
       db.prepare('UPDATE games SET game_type = ?, status = ? WHERE id = ?').run(
