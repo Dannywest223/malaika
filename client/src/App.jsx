@@ -26,7 +26,7 @@ export default function App() {
   const [connected, setConnected] = useState(socket.connected)
   const [gameType, setGameType] = useState(null)
   const [wyrRound, setWyrRound] = useState(null)
-  const [knowMeRound, setKnowMeRound] = useState(null)
+  const [numRound, setNumRound] = useState(null)
   const [truthsRound, setTruthsRound] = useState(null)
 
   const [chatOpen, setChatOpen] = useState(false)
@@ -110,21 +110,17 @@ export default function App() {
       setGame(result.game)
     })
 
-    // ---- How Well Do You Know Me ----
-    socket.on('knowme_game_started', () => {
+    // ---- The Number Game ----
+    socket.on('num_game_started', () => {
       setScreen('knowme')
     })
 
-    socket.on('knowme_round_started', (r) => {
-      setKnowMeRound(r)
+    socket.on('num_round_started', (r) => {
+      setNumRound(r)
       setScreen('knowme')
     })
 
-    socket.on('knowme_answers_submitted', (r) => {
-      setKnowMeRound(r)
-    })
-
-    socket.on('knowme_round_ended', (result) => {
+    socket.on('num_round_ended', (result) => {
       setGame(result.game)
     })
 
@@ -172,10 +168,9 @@ export default function App() {
       socket.off('wyr_game_started')
       socket.off('wyr_round_started')
       socket.off('wyr_round_ended')
-      socket.off('knowme_game_started')
-      socket.off('knowme_round_started')
-      socket.off('knowme_answers_submitted')
-      socket.off('knowme_round_ended')
+      socket.off('num_game_started')
+      socket.off('num_round_started')
+      socket.off('num_round_ended')
       socket.off('truths_game_started')
       socket.off('truths_round_started')
       socket.off('truths_statements_submitted')
@@ -200,7 +195,7 @@ export default function App() {
     setRoundResult(null)
     setGameType(null)
     setWyrRound(null)
-    setKnowMeRound(null)
+    setNumRound(null)
     setTruthsRound(null)
     setScreen('menu')
   }
@@ -211,7 +206,7 @@ export default function App() {
     setRoundResult(null)
     setGameType(null)
     setWyrRound(null)
-    setKnowMeRound(null)
+    setNumRound(null)
     setTruthsRound(null)
     setScreen('home')
     socket.emit('create_game')
@@ -280,7 +275,7 @@ export default function App() {
           <KnowMeGameScreen
             game={game}
             myId={myId}
-            round={knowMeRound}
+            round={numRound}
             setScreen={setScreen}
           />
         )}

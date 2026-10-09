@@ -8,6 +8,7 @@ const GAMES = [
     emoji: '🎯',
     title: 'Guess My Number',
     subtitle: 'Pick a number, let them guess',
+    howTo: 'Pick 1–100 · 3 guesses · Higher/Lower hints',
     duration: '20 rounds',
     ready: true,
     gradient: 'from-rose-glow/30 to-pink-500/20',
@@ -18,6 +19,7 @@ const GAMES = [
     emoji: '💕',
     title: 'Would You Rather',
     subtitle: 'Do you two think the same?',
+    howTo: 'Pick A or B · Match = +1 point each',
     duration: '20 rounds',
     ready: true,
     gradient: 'from-pink-500/20 to-purple-500/20',
@@ -25,9 +27,10 @@ const GAMES = [
   },
   {
     id: 'knowme',
-    emoji: '🧠',
-    title: 'How Well Do You Know Me',
-    subtitle: 'Do you really know each other?',
+    emoji: '🔢',
+    title: 'The Number Game',
+    subtitle: 'Sync your minds',
+    howTo: 'Both pick 1–15 · If sum = target, +1 each',
     duration: '20 rounds',
     ready: true,
     gradient: 'from-purple-500/20 to-rose-glow/20',
@@ -38,6 +41,7 @@ const GAMES = [
     emoji: '😂',
     title: 'Two Truths and a Lie',
     subtitle: 'Spot the fake',
+    howTo: 'Write 2 truths + 1 lie · Guess right = +1',
     duration: '20 rounds',
     ready: true,
     gradient: 'from-rose-glow/20 to-pink-600/20',
@@ -63,7 +67,7 @@ export default function GameMenuScreen({ game, myId }) {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <motion.div
             animate={{ scale: [1, 1.1, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
@@ -90,7 +94,7 @@ export default function GameMenuScreen({ game, myId }) {
                 onClick={() => g.ready && chooseGame(g.id)}
                 disabled={isDisabled}
                 whileTap={{ scale: g.ready ? 0.97 : 1 }}
-                className={`w-full text-left p-5 rounded-3xl border-2 transition ${
+                className={`w-full text-left p-4 rounded-3xl border-2 transition ${
                   isSelected
                     ? 'border-green-400 bg-green-500/20 shadow-glow'
                     : g.ready
@@ -98,8 +102,8 @@ export default function GameMenuScreen({ game, myId }) {
                     : 'bg-white/5 border-white/10 opacity-50'
                 }`}
               >
-                <div className="flex items-center gap-4">
-                  <div className="text-5xl flex-shrink-0">{g.emoji}</div>
+                <div className="flex items-start gap-4">
+                  <div className="text-4xl flex-shrink-0 mt-0.5">{g.emoji}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <div className="font-display text-lg text-rose-soft font-bold truncate">
@@ -111,8 +115,12 @@ export default function GameMenuScreen({ game, myId }) {
                         </span>
                       )}
                     </div>
-                    <div className="text-rose-soft/60 text-xs mb-1 truncate">
+                    <div className="text-rose-soft/70 text-xs mb-2">
                       {g.subtitle}
+                    </div>
+                    {/* HOW TO PLAY */}
+                    <div className="text-[11px] text-rose-soft/50 leading-snug bg-black/20 rounded-lg px-2 py-1.5 border border-white/5 mb-2">
+                      {g.howTo}
                     </div>
                     <div className="text-rose-soft/40 text-[10px] uppercase tracking-wider">
                       {g.duration}

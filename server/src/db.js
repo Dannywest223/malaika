@@ -63,21 +63,14 @@ db.exec(`
   created_at INTEGER
 );
 
-CREATE TABLE IF NOT EXISTS knowme_rounds (
+CREATE TABLE IF NOT EXISTS num_rounds (
   id TEXT PRIMARY KEY,
   game_id TEXT,
   round_number INTEGER,
-  subject_id TEXT,
-  question_1 TEXT,
-  question_2 TEXT,
-  question_3 TEXT,
-  answer_1 TEXT,
-  answer_2 TEXT,
-  answer_3 TEXT,
-  guess_1 TEXT,
-  guess_2 TEXT,
-  guess_3 TEXT,
-  status TEXT DEFAULT 'answering',
+  target INTEGER,
+  player1_pick INTEGER,
+  player2_pick INTEGER,
+  status TEXT DEFAULT 'picking',
   created_at INTEGER
 );
 CREATE TABLE IF NOT EXISTS truths_rounds (

@@ -2,81 +2,59 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { socket } from '../socket'
 
-export default function KnowMeGameScreen({ game, myId, round: initialRound, setScreen }) {
+export default function NumberGameScreen({ game, myId, round: initialRound, setScreen }) {
   const [round, setRound] = useState(initialRound)
-  const [answers, setAnswers] = useState(['', '', ''])
-  const [guesses, setGuesses] = useState(['', '', ''])
+  const [myPick, setMyPick] = useState(null)
   const [result, setResult] = useState(null)
-  const [submitted, setSubmitted] = useState(false)
   const [tappedContinue, setTappedContinue] = useState(false)
 
-  const isSubject = round?.subject_id === myId
   const myScore = myId === game.player1_id ? game.player1_score : game.player2_score
   const herScore = myId === game.player1_id ? game.player2_score : game.player1_score
 
   useEffect(() => {
     const onRoundStart = (r) => {
       setRound(r)
-      setAnswers(['', '', ''])
-      setGuesses(['', '', ''])
+      setMyPick(null)
       setResult(null)
-      setSubmitted(false)
       setTappedContinue(false)
-    }
-    const onAnswersSubmitted = (r) => {
-      setRound(r)
     }
     const onRoundEnd = (res) => {
       setResult(res)
       setRound(res.round)
     }
-    socket.on('knowme_round_started', onRoundStart)
-    socket.on('knowme_answers_submitted', onAnswersSubmitted)
-    socket.on('knowme_round_ended', onRoundEnd)
+    socket.on('num_round_started', onRoundStart)
+    socket.on('num_round_ended', onRoundEnd)
     return () => {
-      socket.off('knowme_round_started', onRoundStart)
-      socket.off('knowme_answers_submitted', onAnswersSubmitted)
-      socket.off('knowme_round_ended', onRoundEnd)
+      socket.off('num_round_started', onRoundStart)
+      socket.off('num_round_ended', onRoundEnd)
     }
   }, [])
 
-  // Fallback: if the round never arrives, ask the server for it
   useEffect(() => {
     if (round) return
     const t = setTimeout(() => {
-      console.log('⏰ Know Me round missing, requesting...')
-      socket.emit('knowme_request_current_round', { gameId: game.id })
+      socket.emit('num_request_current_round', { gameId: game.id })
     }, 2500)
     return () => clearTimeout(t)
   }, [round, game.id])
 
-  // Listen for partner tapping continue
   useEffect(() => {
-    const onPartnerTapped = () => {
-      console.log('👀 Partner tapped continue')
-    }
+    const onPartnerTapped = () => {}
     socket.on('partner_tapped_continue', onPartnerTapped)
     return () => socket.off('partner_tapped_continue', onPartnerTapped)
   }, [])
 
-  const submitAnswers = () => {
+  const choose = (num) => {
     if (!round) return
-    if (answers.some((a) => !a.trim())) return
-    socket.emit('knowme_submit_answers', { roundId: round.id, answers })
-    setSubmitted(true)
-  }
-
-  const submitGuesses = () => {
-    if (!round) return
-    if (guesses.some((g) => !g.trim())) return
-    socket.emit('knowme_submit_guesses', { roundId: round.id, guesses })
-    setSubmitted(true)
+    if (myPick !== null || result) return
+    setMyPick(num)
+    socket.emit('num_submit_pick', { roundId: round.id, pick: num })
   }
 
   const handleContinue = () => {
     if (tappedContinue) return
     setTappedContinue(true)
-    socket.emit('knowme_next_round', {
+    socket.emit('num_next_round', {
       gameId: game.id,
       roundId: result.round.id,
     })
@@ -84,9 +62,10 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
 
   // ---- Result screen ----
   if (result) {
-    const r = result.round
-    const correct = result.correct
-    const isGuesser = result.guesserId === myId
+    const p1 = result.round.player1_pick
+    const p2 = result.round.player2_pick
+    const matched = result.matched
+    const target = result.round.target
 
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24 text-center">
@@ -95,16 +74,23 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
           animate={{ opacity: 1, scale: 1 }}
           className="w-full max-w-md"
         >
-          <div className="text-6xl mb-3">
-            {correct === 3 ? '🏆' : correct >= 1 ? '👏' : '💔'}
-          </div>
-          <h1 className="font-display text-4xl text-rose-soft mb-2">
-            {correct}/3 correct
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', damping: 10 }}
+            className="text-7xl mb-4"
+          >
+            {matched ? '🎯' : '😅'}
+          </motion.div>
+
+          <h1
+            className="font-display text-4xl mb-2"
+            style={{ color: matched ? '#4dff88' : '#ff9ec7' }}
+          >
+            {matched ? 'You matched!' : 'Not quite'}
           </h1>
           <p className="text-rose-soft/70 text-sm mb-2">
-            {isGuesser
-              ? `+${result.points} points for you`
-              : `${result.points} points for Minatallah`}
+            {matched ? '+1 point for both 💕' : 'No points this round'}
           </p>
           {result.roast && (
             <p className="font-display italic text-lg text-rose-soft mb-6">
@@ -112,44 +98,41 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
             </p>
           )}
 
-          <div className="space-y-3 mb-6">
-            {[0, 1, 2].map((i) => {
-              const q = r[`question_${i + 1}`]
-              const a = r[`answer_${i + 1}`]
-              const g = r[`guess_${i + 1}`]
-              const isCorrect =
-                (a || '').toLowerCase().trim() === (g || '').toLowerCase().trim()
-              return (
-                <div
-                  key={i}
-                  className={`rounded-2xl p-4 text-left border-2 ${
-                    isCorrect
-                      ? 'bg-green-500/10 border-green-400/50'
-                      : 'bg-red-500/10 border-red-400/50'
-                  }`}
-                >
-                  <div className="text-[10px] text-rose-soft/60 uppercase tracking-widest mb-1">
-                    {q}
-                  </div>
-                  <div className="text-sm">
-                    <span className="text-rose-soft/60">Real answer: </span>
-                    <span className="text-rose-soft font-bold">{a}</span>
-                  </div>
-                  <div className="text-sm">
-                    <span className="text-rose-soft/60">Guess: </span>
-                    <span
-                      className={
-                        isCorrect
-                          ? 'text-green-400 font-bold'
-                          : 'text-red-400 font-bold'
-                      }
-                    >
-                      {g} {isCorrect ? '✅' : '❌'}
-                    </span>
-                  </div>
+          <div className="bg-white/5 border-2 border-rose-glow/40 rounded-2xl p-5 mb-6">
+            <div className="text-[10px] text-rose-soft/60 uppercase tracking-widest mb-3">
+              The math
+            </div>
+            <div className="flex justify-center items-center gap-3 text-2xl">
+              <div>
+                <div className="text-[10px] text-rose-soft/60 mb-1">You</div>
+                <div className="font-black text-rose-glow">
+                  {myId === game.player1_id ? p1 : p2}
                 </div>
-              )
-            })}
+              </div>
+              <div className="text-rose-soft text-xl">+</div>
+              <div>
+                <div className="text-[10px] text-rose-soft/60 mb-1">Her</div>
+                <div className="font-black text-rose-glow">
+                  {myId === game.player1_id ? p2 : p1}
+                </div>
+              </div>
+              <div className="text-rose-soft text-xl">=</div>
+              <div>
+                <div className="text-[10px] text-rose-soft/60 mb-1">Sum</div>
+                <div
+                  className="font-black"
+                  style={{ color: matched ? '#4dff88' : '#ff4d6d' }}
+                >
+                  {result.sum}
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t border-white/10">
+              <div className="text-[10px] text-rose-soft/60 uppercase tracking-widest mb-1">
+                Target was
+              </div>
+              <div className="text-3xl font-black text-rose-glow">{target}</div>
+            </div>
           </div>
 
           <div className="bg-white/5 rounded-2xl p-5 mb-6 border border-rose-glow/30">
@@ -169,7 +152,6 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
             </div>
           </div>
 
-          {/* CONTINUE BUTTON */}
           {!result.isGameOver ? (
             <div>
               {!tappedContinue ? (
@@ -198,9 +180,6 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
                       />
                     ))}
                   </div>
-                  <div className="text-rose-soft/40 text-[10px]">
-                    She needs to tap Continue too
-                  </div>
                 </div>
               )}
             </div>
@@ -213,157 +192,112 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
             </button>
           )}
 
-<p className="text-rose-soft/40 text-xs mt-3">
-  Round {result.finishedRounds || 1} of {result.totalRounds || 20}
-</p>
+          <p className="text-rose-soft/40 text-xs mt-3">
+            Round {result.finishedRounds || 1} of {result.totalRounds || 20}
+          </p>
         </motion.div>
       </div>
     )
   }
 
-  // ---- Loading state ----
+  // ---- Loading ----
   if (!round) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24 text-center">
-        <div className="text-7xl mb-4 animate-pulse">🧠</div>
-        <h2 className="font-display text-2xl text-rose-soft mb-2">
+        <div className="text-7xl mb-4 animate-pulse">🎯</div>
+        <h2 className="font-display text-2xl text-rose-soft">
           Loading round...
         </h2>
-        <div className="flex justify-center gap-1 mt-4">
-          {[0, 1, 2].map((i) => (
-            <motion.div
-              key={i}
-              animate={{ opacity: [0.3, 1, 0.3] }}
-              transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
-              className="w-2 h-2 rounded-full bg-rose-glow"
-            />
-          ))}
-        </div>
       </div>
     )
   }
 
-  // ---- Subject answering phase ----
-  if (isSubject && round.status === 'answering') {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md"
-        >
-          <div className="text-center mb-6">
-            <div className="text-5xl mb-2">✍️</div>
-            <h2 className="font-display text-3xl text-rose-soft mb-1">
-              Answer about yourself
-            </h2>
-            <p className="text-rose-soft/60 text-xs">
-              Minatallah will try to guess your answers
-            </p>
-          </div>
+  // ---- Picking phase ----
+  const iHavePicked = myPick !== null
 
-          <div className="space-y-4">
-            {[0, 1, 2].map((i) => (
-              <div key={i}>
-                <div className="text-rose-soft/70 text-xs mb-1 font-semibold">
-                  {round[`question_${i + 1}`]}
-                </div>
-                <input
-                  value={answers[i]}
-                  onChange={(e) => {
-                    const copy = [...answers]
-                    copy[i] = e.target.value
-                    setAnswers(copy)
-                  }}
-                  placeholder="Your answer..."
-                  disabled={submitted}
-                  className="w-full py-3 px-4 rounded-2xl bg-white/5 border border-rose-glow/40 text-white placeholder-rose-soft/30 outline-none focus:border-rose-glow transition"
-                />
-              </div>
-            ))}
-          </div>
-
-          <button
-            onClick={submitAnswers}
-            disabled={answers.some((a) => !a.trim()) || submitted}
-            className="mt-6 w-full py-4 rounded-2xl bg-gradient-to-r from-rose-glow to-pink-600 text-white font-bold text-xl shadow-glow disabled:opacity-40 active:scale-95 transition"
-          >
-            {submitted ? 'Waiting for her to guess...' : 'Lock answers 🔒'}
-          </button>
-        </motion.div>
-      </div>
-    )
-  }
-
-  // ---- Guesser guessing phase ----
-  if (!isSubject && round.status === 'guessing') {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md"
-        >
-          <div className="text-center mb-6">
-            <div className="text-5xl mb-2">🧠</div>
-            <h2 className="font-display text-3xl text-rose-soft mb-1">
-              Guess the answers
-            </h2>
-            <p className="text-rose-soft/60 text-xs">
-              Try to match what Minatallah said about herself
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            {[0, 1, 2].map((i) => (
-              <div key={i}>
-                <div className="text-rose-soft/70 text-xs mb-1 font-semibold">
-                  {round[`question_${i + 1}`]}
-                </div>
-                <input
-                  value={guesses[i]}
-                  onChange={(e) => {
-                    const copy = [...guesses]
-                    copy[i] = e.target.value
-                    setGuesses(copy)
-                  }}
-                  placeholder="Your guess..."
-                  disabled={submitted}
-                  className="w-full py-3 px-4 rounded-2xl bg-white/5 border border-rose-glow/40 text-white placeholder-rose-soft/30 outline-none focus:border-rose-glow transition"
-                />
-              </div>
-            ))}
-          </div>
-
-          <button
-            onClick={submitGuesses}
-            disabled={guesses.some((g) => !g.trim()) || submitted}
-            className="mt-6 w-full py-4 rounded-2xl bg-gradient-to-r from-rose-glow to-pink-600 text-white font-bold text-xl shadow-glow disabled:opacity-40 active:scale-95 transition"
-          >
-            {submitted ? 'Checking answers...' : 'Submit guesses 💘'}
-          </button>
-        </motion.div>
-      </div>
-    )
-  }
-
-  // ---- Waiting screen ----
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24 text-center">
-      <div className="text-7xl mb-4 animate-pulse">⏳</div>
-      <h2 className="font-display text-2xl text-rose-soft mb-2">
-        {isSubject ? 'Waiting for guesses...' : 'Waiting for answers...'}
-      </h2>
-      <div className="flex justify-center gap-1 mt-4">
-        {[0, 1, 2].map((i) => (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 pt-24">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-md"
+      >
+        <div className="text-center mb-6">
+          <div className="text-5xl mb-2">🎯</div>
+          <h2 className="font-display text-3xl text-rose-soft mb-1">
+            Pick a number
+          </h2>
+          <p className="text-rose-soft/60 text-xs">
+            1 to 15. Together you must sum to...
+          </p>
+        </div>
+
+        {/* Target */}
+        <div className="bg-gradient-to-br from-rose-glow/20 to-purple-500/10 border-2 border-rose-glow/40 rounded-3xl p-6 mb-6 text-center">
+          <div className="text-[10px] text-rose-soft/60 uppercase tracking-widest mb-2">
+            Target
+          </div>
+          <div className="text-6xl font-black text-rose-glow">
+            {round.target}
+          </div>
+        </div>
+
+        {/* Number grid 1-15 */}
+        <div className="grid grid-cols-5 gap-2 mb-6">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((num) => {
+            const isPicked = myPick === num
+            return (
+              <motion.button
+                key={num}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => choose(num)}
+                disabled={iHavePicked}
+                className={`py-3 rounded-2xl font-black text-lg transition ${
+                  isPicked
+                    ? 'bg-rose-glow text-white shadow-glow'
+                    : 'bg-white/5 border border-rose-glow/40 text-rose-soft hover:bg-rose-glow/20'
+                } ${iHavePicked && !isPicked ? 'opacity-30' : ''}`}
+              >
+                {num}
+              </motion.button>
+            )
+          })}
+        </div>
+
+        {iHavePicked && (
           <motion.div
-            key={i}
-            animate={{ opacity: [0.3, 1, 0.3] }}
-            transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
-            className="w-2 h-2 rounded-full bg-rose-glow"
-          />
-        ))}
-      </div>
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center"
+          >
+            <div className="bg-white/5 border border-rose-glow/30 rounded-2xl p-4 mb-3">
+              <div className="text-[10px] text-rose-soft/60 uppercase tracking-widest mb-1">
+                You picked
+              </div>
+              <div className="text-4xl font-black text-rose-glow">
+                {myPick}
+              </div>
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-rose-soft/60 text-sm">
+                Waiting for her to pick
+              </span>
+              {[0, 1, 2].map((i) => (
+                <motion.div
+                  key={i}
+                  animate={{ opacity: [0.3, 1, 0.3] }}
+                  transition={{
+                    duration: 1.2,
+                    repeat: Infinity,
+                    delay: i * 0.2,
+                  }}
+                  className="w-1.5 h-1.5 rounded-full bg-rose-glow"
+                />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </motion.div>
     </div>
   )
 }

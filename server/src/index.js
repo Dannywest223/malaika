@@ -17,11 +17,10 @@ import {
   getCurrentWYRRound,
   submitWYRChoice,
   nextWYRRound,
-  startKnowMeGame,
-  getCurrentKnowMeRound,
-  submitKnowMeAnswers,
-  submitKnowMeGuesses,
-  nextKnowMeRound,
+  startNumGame,
+  getCurrentNumRound,
+  submitNumPick,
+  nextNumRound,
   startTruthsGame,
   getCurrentTruthsRound,
   submitTruths,
@@ -40,8 +39,8 @@ const io = new Server(httpServer, {
 
 app.get('/', (req, res) => res.send('Malaika server is running 🚀'))
 
-const gameSelections = {} // gameId -> { playerId: gameType }
-const continueTaps = {} // gameId -> { roundId: Set of playerIds who tapped continue }
+const gameSelections = {}
+const continueTaps = {}
 
 io.on('connection', (socket) => {
   console.log('✅ Connected:', socket.id)
@@ -60,7 +59,6 @@ io.on('connection', (socket) => {
       return
     }
     socket.join(gameId)
-
     io.to(gameId).emit('game_started', result.game)
     console.log('👥 Player joined — showing menu:', gameId)
   })
@@ -87,7 +85,6 @@ io.on('connection', (socket) => {
     const existingGame = getGame(gameId)
     if (!existingGame) return
 
-    // If the game is already playing a specific game type, resend the active round
     if (existingGame.status === 'playing') {
       console.log('   ⚠️ Game status is "playing" — checking for active round')
 
@@ -101,11 +98,11 @@ io.on('connection', (socket) => {
           return
         }
       } else if (existingGame.game_type === 'knowme') {
-        activeRound = getCurrentKnowMeRound(gameId)
+        activeRound = getCurrentNumRound(gameId)
         if (activeRound && !activeRound.error) {
-          socket.emit('knowme_game_started', { gameId })
-          socket.emit('knowme_round_started', activeRound)
-          console.log('   📤 Resent active Know Me round')
+          socket.emit('num_game_started', { gameId })
+          socket.emit('num_round_started', activeRound)
+          console.log('   📤 Resent active Num round')
           return
         }
       } else if (existingGame.game_type === 'truths') {
@@ -125,7 +122,6 @@ io.on('connection', (socket) => {
         }
       }
 
-      // No active round found — reset and continue
       console.log('   ⚠️ No active round found — resetting game status')
       db.prepare('UPDATE games SET status = ? WHERE id = ?').run('waiting', gameId)
       existingGame.status = 'waiting'
@@ -180,11 +176,11 @@ io.on('connection', (socket) => {
             console.log('   🚀 WYR round 1 started:', round.id)
           }
         } else if (chosenType === 'knowme') {
-          const round = startKnowMeGame(gameId)
+          const round = startNumGame(gameId)
           if (round && !round.error) {
-            io.to(gameId).emit('knowme_game_started', { gameId })
-            io.to(gameId).emit('knowme_round_started', round)
-            console.log('   🚀 Know Me round 1 started:', round.id)
+            io.to(gameId).emit('num_game_started', { gameId })
+            io.to(gameId).emit('num_round_started', round)
+            console.log('   🚀 Num round 1 started:', round.id)
           }
         } else if (chosenType === 'truths') {
           const round = startTruthsGame(gameId)
@@ -323,31 +319,24 @@ io.on('connection', (socket) => {
     }
   })
 
-  // ---------- HOW WELL DO YOU KNOW ME ----------
+  // ---------- THE NUMBER GAME ----------
 
-  socket.on('knowme_submit_answers', ({ roundId, answers }) => {
-    const result = submitKnowMeAnswers(roundId, socket.id, answers)
+  socket.on('num_submit_pick', ({ roundId, pick }) => {
+    const result = submitNumPick(roundId, socket.id, pick)
     if (result.error) {
       socket.emit('error_message', result.error)
       return
     }
-    const game = getGame(result.round.game_id)
-    io.to(game.id).emit('knowme_answers_submitted', result.round)
-    console.log('🧠 Know Me answers submitted')
-  })
-
-  socket.on('knowme_submit_guesses', ({ roundId, guesses }) => {
-    const result = submitKnowMeGuesses(roundId, socket.id, guesses)
-    if (result.error) {
-      socket.emit('error_message', result.error)
-      return
+    if (result.roundEnded) {
+      const game = getGame(result.round.game_id)
+      io.to(game.id).emit('num_round_ended', result)
+      console.log('🎯 Num round ended — matched:', result.matched, '| sum:', result.sum)
+    } else {
+      socket.emit('num_waiting_for_partner', { round: result.round })
     }
-    const game = getGame(result.round.game_id)
-    io.to(game.id).emit('knowme_round_ended', result)
-    console.log('🧠 Know Me — correct:', result.correct, '| points:', result.points)
   })
 
-  socket.on('knowme_next_round', ({ gameId, roundId }) => {
+  socket.on('num_next_round', ({ gameId, roundId }) => {
     if (!continueTaps[gameId]) continueTaps[gameId] = {}
     if (!continueTaps[gameId][roundId]) continueTaps[gameId][roundId] = new Set()
     continueTaps[gameId][roundId].add(socket.id)
@@ -366,17 +355,17 @@ io.on('connection', (socket) => {
 
     delete continueTaps[gameId][roundId]
 
-    const round = nextKnowMeRound(gameId)
+    const round = nextNumRound(gameId)
     if (round.error) return
-    io.to(gameId).emit('knowme_round_started', round)
-    console.log('🔄 New Know Me round:', round.round_number)
+    io.to(gameId).emit('num_round_started', round)
+    console.log('🔄 New Num round:', round.round_number)
   })
 
-  socket.on('knowme_request_current_round', ({ gameId }) => {
-    const round = getCurrentKnowMeRound(gameId)
+  socket.on('num_request_current_round', ({ gameId }) => {
+    const round = getCurrentNumRound(gameId)
     if (round && !round.error) {
-      socket.emit('knowme_round_started', round)
-      console.log('📤 Resent Know Me round to', socket.id.slice(-6))
+      socket.emit('num_round_started', round)
+      console.log('📤 Resent Num round to', socket.id.slice(-6))
     }
   })
 
