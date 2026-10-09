@@ -41,6 +41,7 @@ const io = new Server(httpServer, {
 app.get('/', (req, res) => res.send('Malaika server is running 🚀'))
 
 const gameSelections = {} // gameId -> { playerId: gameType }
+const continueTaps = {} // gameId -> { roundId: Set of playerIds who tapped continue }
 
 io.on('connection', (socket) => {
   console.log('✅ Connected:', socket.id)
@@ -64,12 +65,12 @@ io.on('connection', (socket) => {
     console.log('👥 Player joined — showing menu:', gameId)
   })
 
-  // Reset game status so a new game can be picked (called from "Play Again")
   socket.on('reset_game_status', ({ gameId }) => {
     const game = getGame(gameId)
     if (!game) return
     db.prepare('UPDATE games SET status = ? WHERE id = ?').run('waiting', gameId)
     delete gameSelections[gameId]
+    delete continueTaps[gameId]
     console.log('🔄 Reset game status:', gameId)
   })
 
@@ -86,8 +87,6 @@ io.on('connection', (socket) => {
     const existingGame = getGame(gameId)
     if (!existingGame) return
 
-    // ⚠️ If status is 'playing', check if an active round exists.
-    // If yes → resend it. If no → reset the game and continue below.
     if (existingGame.status === 'playing') {
       console.log('   ⚠️ Game status is "playing" — checking for active round')
 
@@ -125,7 +124,6 @@ io.on('connection', (socket) => {
         }
       }
 
-      // No active round → reset and fall through
       console.log('   ⚠️ No active round found — resetting game status')
       db.prepare('UPDATE games SET status = ? WHERE id = ?').run(
         'waiting',
@@ -143,21 +141,12 @@ io.on('connection', (socket) => {
     const p2 = existingGame.player2_id
     const selections = gameSelections[gameId]
 
-    console.log(
-      '   selections:',
-      Object.keys(selections).map((k) => k.slice(-6) + ':' + selections[k]),
-      '| p1:',
-      p1?.slice(-6),
-      '| p2:',
-      p2?.slice(-6)
-    )
-
     if (selections[p1] && selections[p2] && selections[p1] === selections[p2]) {
       const chosenType = selections[p1]
       console.log('   ✅ Both picked', chosenType, '— starting game')
 
-      // Clear selections IMMEDIATELY to prevent double-fire
       delete gameSelections[gameId]
+      continueTaps[gameId] = {}
 
       db.prepare('UPDATE games SET game_type = ?, status = ? WHERE id = ?').run(
         chosenType,
@@ -220,9 +209,7 @@ io.on('connection', (socket) => {
       socket.emit('error_message', result.error)
       return
     }
-
     const game = getGame(result.round.game_id)
-
     if (result.round.status === 'playing') {
       io.to(game.id).emit('round_ready', result.round)
     } else {
@@ -236,10 +223,8 @@ io.on('connection', (socket) => {
       socket.emit('error_message', result.error)
       return
     }
-
     const round = result.round
     const game = getGame(round.game_id)
-
     if (result.roundEnded) {
       socket.emit('guess_feedback', {
         feedback: result.found ? 'correct' : 'wrong',
@@ -258,7 +243,25 @@ io.on('connection', (socket) => {
     }
   })
 
-  socket.on('next_round', ({ gameId }) => {
+  socket.on('next_round', ({ gameId, roundId }) => {
+    if (!continueTaps[gameId]) continueTaps[gameId] = {}
+    if (!continueTaps[gameId][roundId]) continueTaps[gameId][roundId] = new Set()
+    continueTaps[gameId][roundId].add(socket.id)
+
+    const game = getGame(gameId)
+    if (!game) return
+
+    const bothTapped =
+      continueTaps[gameId][roundId].has(game.player1_id) &&
+      continueTaps[gameId][roundId].has(game.player2_id)
+
+    if (!bothTapped) {
+      socket.to(gameId).emit('partner_tapped_continue')
+      return
+    }
+
+    delete continueTaps[gameId][roundId]
+
     const result = nextRound(gameId)
     if (result.error) {
       console.log('next_round error (ignored):', result.error)
@@ -276,22 +279,34 @@ io.on('connection', (socket) => {
       socket.emit('error_message', result.error)
       return
     }
-
     if (result.roundEnded) {
       const game = getGame(result.round.game_id)
       io.to(game.id).emit('wyr_round_ended', result)
-      console.log(
-        '💕 WYR round ended — matched:',
-        result.matched,
-        '| isGameOver:',
-        result.isGameOver
-      )
+      console.log('💕 WYR round ended — matched:', result.matched)
     } else {
       socket.emit('wyr_waiting_for_partner', { round: result.round })
     }
   })
 
-  socket.on('wyr_next_round', ({ gameId }) => {
+  socket.on('wyr_next_round', ({ gameId, roundId }) => {
+    if (!continueTaps[gameId]) continueTaps[gameId] = {}
+    if (!continueTaps[gameId][roundId]) continueTaps[gameId][roundId] = new Set()
+    continueTaps[gameId][roundId].add(socket.id)
+
+    const game = getGame(gameId)
+    if (!game) return
+
+    const bothTapped =
+      continueTaps[gameId][roundId].has(game.player1_id) &&
+      continueTaps[gameId][roundId].has(game.player2_id)
+
+    if (!bothTapped) {
+      socket.to(gameId).emit('partner_tapped_continue')
+      return
+    }
+
+    delete continueTaps[gameId][roundId]
+
     const round = nextWYRRound(gameId)
     if (round.error) {
       console.log('wyr_next_round (ignored):', round.error)
@@ -333,7 +348,25 @@ io.on('connection', (socket) => {
     console.log('🧠 Know Me — correct:', result.correct, '| points:', result.points)
   })
 
-  socket.on('knowme_next_round', ({ gameId }) => {
+  socket.on('knowme_next_round', ({ gameId, roundId }) => {
+    if (!continueTaps[gameId]) continueTaps[gameId] = {}
+    if (!continueTaps[gameId][roundId]) continueTaps[gameId][roundId] = new Set()
+    continueTaps[gameId][roundId].add(socket.id)
+
+    const game = getGame(gameId)
+    if (!game) return
+
+    const bothTapped =
+      continueTaps[gameId][roundId].has(game.player1_id) &&
+      continueTaps[gameId][roundId].has(game.player2_id)
+
+    if (!bothTapped) {
+      socket.to(gameId).emit('partner_tapped_continue')
+      return
+    }
+
+    delete continueTaps[gameId][roundId]
+
     const round = nextKnowMeRound(gameId)
     if (round.error) return
     io.to(gameId).emit('knowme_round_started', round)
@@ -372,7 +405,25 @@ io.on('connection', (socket) => {
     console.log('😂 Truths — correct:', result.correct, '| points:', result.points)
   })
 
-  socket.on('truths_next_round', ({ gameId }) => {
+  socket.on('truths_next_round', ({ gameId, roundId }) => {
+    if (!continueTaps[gameId]) continueTaps[gameId] = {}
+    if (!continueTaps[gameId][roundId]) continueTaps[gameId][roundId] = new Set()
+    continueTaps[gameId][roundId].add(socket.id)
+
+    const game = getGame(gameId)
+    if (!game) return
+
+    const bothTapped =
+      continueTaps[gameId][roundId].has(game.player1_id) &&
+      continueTaps[gameId][roundId].has(game.player2_id)
+
+    if (!bothTapped) {
+      socket.to(gameId).emit('partner_tapped_continue')
+      return
+    }
+
+    delete continueTaps[gameId][roundId]
+
     const round = nextTruthsRound(gameId)
     if (round.error) return
     io.to(gameId).emit('truths_round_started', round)
@@ -395,7 +446,6 @@ io.on('connection', (socket) => {
 
   socket.on('send_message', ({ gameId, content, type = 'text' }) => {
     if (!content || !content.trim()) return
-
     const id = nanoid()
     db.prepare(`
       INSERT INTO messages (id, game_id, sender_id, content, type, created_at)
@@ -410,7 +460,6 @@ io.on('connection', (socket) => {
       type,
       created_at: Date.now(),
     }
-
     io.to(gameId).emit('new_message', message)
   })
 

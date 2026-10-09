@@ -8,6 +8,7 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
   const [guesses, setGuesses] = useState(['', '', ''])
   const [result, setResult] = useState(null)
   const [submitted, setSubmitted] = useState(false)
+  const [tappedContinue, setTappedContinue] = useState(false)
 
   const isSubject = round?.subject_id === myId
   const myScore = myId === game.player1_id ? game.player1_score : game.player2_score
@@ -20,6 +21,7 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
       setGuesses(['', '', ''])
       setResult(null)
       setSubmitted(false)
+      setTappedContinue(false)
     }
     const onAnswersSubmitted = (r) => {
       setRound(r)
@@ -48,17 +50,14 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
     return () => clearTimeout(t)
   }, [round, game.id])
 
+  // Listen for partner tapping continue
   useEffect(() => {
-    if (!result) return
-    if (result.isGameOver) {
-      const t = setTimeout(() => setScreen('gameOver'), 4500)
-      return () => clearTimeout(t)
+    const onPartnerTapped = () => {
+      console.log('👀 Partner tapped continue')
     }
-    const t = setTimeout(() => {
-      socket.emit('knowme_next_round', { gameId: game.id })
-    }, 4500)
-    return () => clearTimeout(t)
-  }, [result])
+    socket.on('partner_tapped_continue', onPartnerTapped)
+    return () => socket.off('partner_tapped_continue', onPartnerTapped)
+  }, [])
 
   const submitAnswers = () => {
     if (!round) return
@@ -72,6 +71,15 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
     if (guesses.some((g) => !g.trim())) return
     socket.emit('knowme_submit_guesses', { roundId: round.id, guesses })
     setSubmitted(true)
+  }
+
+  const handleContinue = () => {
+    if (tappedContinue) return
+    setTappedContinue(true)
+    socket.emit('knowme_next_round', {
+      gameId: game.id,
+      roundId: result.round.id,
+    })
   }
 
   // ---- Result screen ----
@@ -93,11 +101,16 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
           <h1 className="font-display text-4xl text-rose-soft mb-2">
             {correct}/3 correct
           </h1>
-          <p className="text-rose-soft/70 text-sm mb-6">
+          <p className="text-rose-soft/70 text-sm mb-2">
             {isGuesser
               ? `+${result.points} points for you`
               : `${result.points} points for Minatallah`}
           </p>
+          {result.roast && (
+            <p className="font-display italic text-lg text-rose-soft mb-6">
+              "{result.roast}"
+            </p>
+          )}
 
           <div className="space-y-3 mb-6">
             {[0, 1, 2].map((i) => {
@@ -156,10 +169,52 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
             </div>
           </div>
 
-          <p className="text-rose-soft/40 text-xs">
-            {result.isGameOver
-              ? 'Final results coming...'
-              : `Round ${round.round_number + 1} starting...`}
+          {/* CONTINUE BUTTON */}
+          {!result.isGameOver ? (
+            <div>
+              {!tappedContinue ? (
+                <button
+                  onClick={handleContinue}
+                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-glow to-pink-600 text-white font-bold text-xl shadow-glow hover:scale-[1.02] active:scale-95 transition"
+                >
+                  Continue ➡️
+                </button>
+              ) : (
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <span className="text-rose-soft/60 text-sm">
+                      Waiting for her to continue
+                    </span>
+                    {[0, 1, 2].map((i) => (
+                      <motion.div
+                        key={i}
+                        animate={{ opacity: [0.3, 1, 0.3] }}
+                        transition={{
+                          duration: 1.2,
+                          repeat: Infinity,
+                          delay: i * 0.2,
+                        }}
+                        className="w-1.5 h-1.5 rounded-full bg-rose-glow"
+                      />
+                    ))}
+                  </div>
+                  <div className="text-rose-soft/40 text-[10px]">
+                    She needs to tap Continue too
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => setScreen('gameOver')}
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-glow to-pink-600 text-white font-bold text-xl shadow-glow hover:scale-[1.02] active:scale-95 transition"
+            >
+              See Final Results 🏆
+            </button>
+          )}
+
+          <p className="text-rose-soft/40 text-xs mt-3">
+            Round {round.round_number} of 20
           </p>
         </motion.div>
       </div>

@@ -28,6 +28,7 @@ export default function TruthsGameScreen({ game, myId, round: initialRound, setS
     STARTER_PROMPTS[Math.floor(Math.random() * STARTER_PROMPTS.length)]
   )
   const [floatingReactions, setFloatingReactions] = useState([])
+  const [tappedContinue, setTappedContinue] = useState(false)
 
   const isWriter = round?.writer_id === myId
   const myScore = myId === game.player1_id ? game.player1_score : game.player2_score
@@ -42,6 +43,7 @@ export default function TruthsGameScreen({ game, myId, round: initialRound, setS
       setSubmitted(false)
       setPickedIndex(null)
       setFloatingReactions([])
+      setTappedContinue(false)
       setPrompt(
         STARTER_PROMPTS[Math.floor(Math.random() * STARTER_PROMPTS.length)]
       )
@@ -84,17 +86,14 @@ export default function TruthsGameScreen({ game, myId, round: initialRound, setS
     return () => clearTimeout(t)
   }, [round, game.id])
 
+  // Listen for partner tapping continue
   useEffect(() => {
-    if (!result) return
-    if (result.isGameOver) {
-      const t = setTimeout(() => setScreen('gameOver'), 5500)
-      return () => clearTimeout(t)
+    const onPartnerTapped = () => {
+      console.log('👀 Partner tapped continue')
     }
-    const t = setTimeout(() => {
-      socket.emit('truths_next_round', { gameId: game.id })
-    }, 5500)
-    return () => clearTimeout(t)
-  }, [result])
+    socket.on('partner_tapped_continue', onPartnerTapped)
+    return () => socket.off('partner_tapped_continue', onPartnerTapped)
+  }, [])
 
   const submitStatements = () => {
     if (!round) return
@@ -123,6 +122,15 @@ export default function TruthsGameScreen({ game, myId, round: initialRound, setS
     setTimeout(() => {
       setFloatingReactions((prev) => prev.filter((r) => r.id !== id))
     }, 3000)
+  }
+
+  const handleContinue = () => {
+    if (tappedContinue) return
+    setTappedContinue(true)
+    socket.emit('truths_next_round', {
+      gameId: game.id,
+      roundId: result.round.id,
+    })
   }
 
   // ---- Result screen ----
@@ -254,22 +262,53 @@ export default function TruthsGameScreen({ game, myId, round: initialRound, setS
             </div>
           </div>
 
-          <p className="text-rose-soft/40 text-xs">
-            {result.isGameOver
-              ? 'Final results coming...'
-              : `Round ${round.round_number + 1} starting...`}
-          </p>
-
-          {!result.isGameOver && (
-            <div className="mt-4 h-1 bg-white/5 rounded-full overflow-hidden">
-              <motion.div
-                initial={{ width: '0%' }}
-                animate={{ width: '100%' }}
-                transition={{ duration: 5.5, ease: 'linear' }}
-                className="h-full bg-gradient-to-r from-rose-glow to-pink-500"
-              />
+          {/* CONTINUE BUTTON */}
+          {!result.isGameOver ? (
+            <div>
+              {!tappedContinue ? (
+                <button
+                  onClick={handleContinue}
+                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-glow to-pink-600 text-white font-bold text-xl shadow-glow hover:scale-[1.02] active:scale-95 transition"
+                >
+                  Continue ➡️
+                </button>
+              ) : (
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <span className="text-rose-soft/60 text-sm">
+                      Waiting for her to continue
+                    </span>
+                    {[0, 1, 2].map((i) => (
+                      <motion.div
+                        key={i}
+                        animate={{ opacity: [0.3, 1, 0.3] }}
+                        transition={{
+                          duration: 1.2,
+                          repeat: Infinity,
+                          delay: i * 0.2,
+                        }}
+                        className="w-1.5 h-1.5 rounded-full bg-rose-glow"
+                      />
+                    ))}
+                  </div>
+                  <div className="text-rose-soft/40 text-[10px]">
+                    She needs to tap Continue too
+                  </div>
+                </div>
+              )}
             </div>
+          ) : (
+            <button
+              onClick={() => setScreen('gameOver')}
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-glow to-pink-600 text-white font-bold text-xl shadow-glow hover:scale-[1.02] active:scale-95 transition"
+            >
+              See Final Results 🏆
+            </button>
           )}
+
+          <p className="text-rose-soft/40 text-xs mt-3">
+            Round {round.round_number} of 20
+          </p>
         </motion.div>
       </div>
     )
