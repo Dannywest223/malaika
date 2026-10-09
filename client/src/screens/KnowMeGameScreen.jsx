@@ -213,9 +213,9 @@ export default function KnowMeGameScreen({ game, myId, round: initialRound, setS
             </button>
           )}
 
-          <p className="text-rose-soft/40 text-xs mt-3">
-            Round {round.round_number} of 20
-          </p>
+<p className="text-rose-soft/40 text-xs mt-3">
+  Round {result.finishedRounds || 1} of {result.totalRounds || 20}
+</p>
         </motion.div>
       </div>
     )
