@@ -199,7 +199,6 @@ function endRound(roundId, guesserId, guessesUsed, found) {
   const round = getRound(roundId)
   const game = getGame(round.game_id)
 
-  // Guess My Number scores 3/2/1 based on guesses used
   const points = pointsForGuesses(guessesUsed, found)
 
   if (guesserId === game.player1_id) {
@@ -467,32 +466,31 @@ export function startKnowMeGame(gameId) {
 
   db.prepare('DELETE FROM knowme_rounds WHERE game_id = ?').run(gameId)
 
-  return createKnowMeRound(gameId, 1, game.player1_id)
-}
-
-function createKnowMeRound(gameId, roundNumber, subjectId) {
-  const questions = getRandomKnowMeQuestions(3)
-  const id = nanoid()
-
-  db.prepare(`
-    INSERT INTO knowme_rounds (
-      id, game_id, round_number, subject_id,
-      question_1, question_2, question_3,
-      status, created_at
+  // Pre-create all 20 rounds
+  for (let i = 1; i <= 20; i++) {
+    const subjectId = i % 2 === 1 ? game.player1_id : game.player2_id
+    const questions = getRandomKnowMeQuestions(3)
+    const id = nanoid()
+    db.prepare(`
+      INSERT INTO knowme_rounds (
+        id, game_id, round_number, subject_id,
+        question_1, question_2, question_3,
+        status, created_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'answering', ?)
+    `).run(
+      id,
+      gameId,
+      i,
+      subjectId,
+      questions[0],
+      questions[1],
+      questions[2],
+      Date.now()
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'answering', ?)
-  `).run(
-    id,
-    gameId,
-    roundNumber,
-    subjectId,
-    questions[0],
-    questions[1],
-    questions[2],
-    Date.now()
-  )
+  }
 
-  return getKnowMeRound(id)
+  return getCurrentKnowMeRound(gameId)
 }
 
 export function getKnowMeRound(roundId) {
@@ -513,9 +511,52 @@ export function submitKnowMeAnswers(roundId, playerId, answers) {
   if (!round) return { error: 'Round not found' }
   if (round.subject_id !== playerId) return { error: 'Not your turn to answer' }
 
+  if (!answers || answers.length !== 3) return { error: 'Need 3 answers' }
+  for (const a of answers) {
+    if (!a.real || !a.real.trim()) return { error: 'Real answer required' }
+    if (!a.fakes || a.fakes.length !== 2) return { error: 'Need 2 fakes' }
+    if (a.fakes.some((f) => !f || !f.trim())) return { error: 'Fakes required' }
+  }
+
+  const orders = []
+  for (let i = 0; i < 3; i++) {
+    const q = answers[i]
+    const options = [
+      { text: q.real.trim(), isCorrect: true },
+      { text: q.fakes[0].trim(), isCorrect: false },
+      { text: q.fakes[1].trim(), isCorrect: false },
+    ]
+    for (let j = options.length - 1; j > 0; j--) {
+      const k = Math.floor(Math.random() * (j + 1))
+      ;[options[j], options[k]] = [options[k], options[j]]
+    }
+    orders.push(options.map((o) => o.text))
+  }
+
   db.prepare(`
-    UPDATE knowme_rounds SET answer_1 = ?, answer_2 = ?, answer_3 = ?, status = 'guessing' WHERE id = ?
-  `).run(answers[0], answers[1], answers[2], roundId)
+    UPDATE knowme_rounds SET
+      answer_1 = ?, answer_2 = ?, answer_3 = ?,
+      decoy_1a = ?, decoy_1b = ?,
+      decoy_2a = ?, decoy_2b = ?,
+      decoy_3a = ?, decoy_3b = ?,
+      order_1 = ?, order_2 = ?, order_3 = ?,
+      status = 'guessing'
+    WHERE id = ?
+  `).run(
+    answers[0].real.trim(),
+    answers[1].real.trim(),
+    answers[2].real.trim(),
+    answers[0].fakes[0].trim(),
+    answers[0].fakes[1].trim(),
+    answers[1].fakes[0].trim(),
+    answers[1].fakes[1].trim(),
+    answers[2].fakes[0].trim(),
+    answers[2].fakes[1].trim(),
+    JSON.stringify(orders[0]),
+    JSON.stringify(orders[1]),
+    JSON.stringify(orders[2]),
+    roundId
+  )
 
   return { round: getKnowMeRound(roundId) }
 }
@@ -525,6 +566,7 @@ export function submitKnowMeGuesses(roundId, playerId, guesses) {
   if (!round) return { error: 'Round not found' }
   if (round.subject_id === playerId) return { error: 'Subject cannot guess' }
   if (round.status !== 'guessing') return { error: 'Not in guessing phase' }
+  if (!guesses || guesses.length !== 3) return { error: 'Need 3 guesses' }
 
   db.prepare(`
     UPDATE knowme_rounds SET guess_1 = ?, guess_2 = ?, guess_3 = ?, status = 'finished' WHERE id = ?
@@ -533,13 +575,11 @@ export function submitKnowMeGuesses(roundId, playerId, guesses) {
   const updated = getKnowMeRound(roundId)
   const game = getGame(updated.game_id)
 
-  const normalize = (s) => (s || '').toLowerCase().trim()
   let correct = 0
-  if (normalize(updated.guess_1) === normalize(updated.answer_1)) correct++
-  if (normalize(updated.guess_2) === normalize(updated.answer_2)) correct++
-  if (normalize(updated.guess_3) === normalize(updated.answer_3)) correct++
+  if (guesses[0] === updated.answer_1) correct++
+  if (guesses[1] === updated.answer_2) correct++
+  if (guesses[2] === updated.answer_3) correct++
 
-  // 1 point per correct answer
   const points = correct
 
   if (playerId === game.player1_id) {
@@ -599,16 +639,23 @@ export function nextKnowMeRound(gameId) {
 
   if (finishedRounds >= totalRounds) return { error: 'Game finished' }
 
-  const nextRoundNumber = finishedRounds + 1
-  const nextSubjectId =
-    nextRoundNumber % 2 === 1 ? game.player1_id : game.player2_id
+  const nextRound = db
+    .prepare(`
+      SELECT * FROM knowme_rounds
+      WHERE game_id = ? AND status != 'finished'
+      ORDER BY round_number ASC
+      LIMIT 1
+    `)
+    .get(gameId)
+
+  if (!nextRound) return { error: 'No more rounds' }
 
   db.prepare('UPDATE games SET current_round = ? WHERE id = ?').run(
-    nextRoundNumber,
+    finishedRounds + 1,
     gameId
   )
 
-  return createKnowMeRound(gameId, nextRoundNumber, nextSubjectId)
+  return nextRound
 }
 
 // ==================
@@ -639,17 +686,17 @@ export function startTruthsGame(gameId) {
 
   db.prepare('DELETE FROM truths_rounds WHERE game_id = ?').run(gameId)
 
-  return createTruthsRound(gameId, 1, game.player1_id)
-}
+  // Pre-create all 20 rounds
+  for (let i = 1; i <= 20; i++) {
+    const writerId = i % 2 === 1 ? game.player1_id : game.player2_id
+    const id = nanoid()
+    db.prepare(`
+      INSERT INTO truths_rounds (id, game_id, round_number, writer_id, status, created_at)
+      VALUES (?, ?, ?, ?, 'writing', ?)
+    `).run(id, gameId, i, writerId, Date.now())
+  }
 
-function createTruthsRound(gameId, roundNumber, writerId) {
-  const id = nanoid()
-  db.prepare(`
-    INSERT INTO truths_rounds (id, game_id, round_number, writer_id, status, created_at)
-    VALUES (?, ?, ?, ?, 'writing', ?)
-  `).run(id, gameId, roundNumber, writerId, Date.now())
-
-  return getTruthsRound(id)
+  return getCurrentTruthsRound(gameId)
 }
 
 export function getTruthsRound(roundId) {
@@ -723,7 +770,6 @@ export function submitTruthsGuess(roundId, playerId, pickIndex) {
   const game = getGame(updated.game_id)
 
   const correct = pickIndex === updated.lie_index
-  // 1 point per correct guess
   const points = correct ? 1 : 0
 
   if (playerId === game.player1_id) {
@@ -779,12 +825,21 @@ export function nextTruthsRound(gameId) {
 
   if (finishedRounds >= totalRounds) return { error: 'Game finished' }
 
-  const nextRoundNumber = finishedRounds + 1
-  const nextWriterId =
-    nextRoundNumber % 2 === 1 ? game.player1_id : game.player2_id
+  const nextRound = db
+    .prepare(`
+      SELECT * FROM truths_rounds
+      WHERE game_id = ? AND status != 'finished'
+      ORDER BY round_number ASC
+      LIMIT 1
+    `)
+    .get(gameId)
 
-  db.prepare('UPDATE games SET current_round = ? WHERE id = ?')
-    .run(nextRoundNumber, gameId)
+  if (!nextRound) return { error: 'No more rounds' }
 
-  return createTruthsRound(gameId, nextRoundNumber, nextWriterId)
+  db.prepare('UPDATE games SET current_round = ? WHERE id = ?').run(
+    finishedRounds + 1,
+    gameId
+  )
+
+  return nextRound
 }
