@@ -258,10 +258,42 @@ export function nextRound(gameId) {
 // WOULD YOU RATHER
 // ==================
 
+const WYR_MATCH_ROASTS = [
+  'Soulmates confirmed 💕',
+  'You two are literally the same person 😂',
+  'Couple goals fr 🥰',
+  'Okay, that was impressive 💘',
+  'Telepathy much? 🧠💕',
+]
+
+const WYR_MISMATCH_ROASTS = [
+  'Opposites attract I guess 😅',
+  'We need to talk about your choices 💀',
+  'Bold choice... very bold 😏',
+  'You are not on the same page at all 😂',
+  'That is so us honestly 😘',
+]
+
 export function startWYRGame(gameId) {
   const game = getGame(gameId)
   if (!game) return { error: 'Game not found' }
 
+  // Idempotency: if 20 rounds exist and the game is still active, reuse them
+  const existingCount = db
+    .prepare('SELECT COUNT(*) as c FROM wyr_rounds WHERE game_id = ?')
+    .get(gameId).c
+
+  const existingActive = db
+    .prepare(
+      "SELECT * FROM wyr_rounds WHERE game_id = ? AND status != 'finished' ORDER BY round_number ASC LIMIT 1"
+    )
+    .get(gameId)
+
+  if (existingCount === 20 && existingActive) {
+    return existingActive
+  }
+
+  // Hard reset for a fresh game
   db.prepare(
     'UPDATE games SET player1_score = 0, player2_score = 0, current_round = 1 WHERE id = ?'
   ).run(gameId)
@@ -330,11 +362,15 @@ export function submitWYRChoice(roundId, playerId, choice) {
 
     const isGameOver = round.round_number >= totalRounds
 
+    const pool = matched ? WYR_MATCH_ROASTS : WYR_MISMATCH_ROASTS
+    const roast = pool[Math.floor(Math.random() * pool.length)]
+
     return {
       round: getWYRRound(roundId),
       roundEnded: true,
       matched,
       points,
+      roast,
       isGameOver,
       game: getGame(game.id),
     }
@@ -379,9 +415,42 @@ export function nextWYRRound(gameId) {
 // HOW WELL DO YOU KNOW ME
 // ==================
 
+const KNOWME_ROASTS_PERFECT = [
+  'You know me better than I know myself 😱',
+  'Okay stalker... I mean soulmate 🥰',
+  'How?! That was impressive 💕',
+]
+
+const KNOWME_ROASTS_ZERO = [
+  'Wow. Just wow. 💀',
+  'You know NOTHING about me huh? 😭',
+  'We have a problem 😂',
+]
+
+const KNOWME_ROASTS_MIXED = [
+  'Not bad, but not perfect 😏',
+  'Half right, half wrong 💕',
+  'Getting warmer 🔥',
+]
+
 export function startKnowMeGame(gameId) {
   const game = getGame(gameId)
   if (!game) return { error: 'Game not found' }
+
+  // Idempotency: if 20 rounds exist and the game is still active, reuse them
+  const existingCount = db
+    .prepare('SELECT COUNT(*) as c FROM knowme_rounds WHERE game_id = ?')
+    .get(gameId).c
+
+  const existingActive = db
+    .prepare(
+      "SELECT * FROM knowme_rounds WHERE game_id = ? AND status != 'finished' ORDER BY round_number ASC LIMIT 1"
+    )
+    .get(gameId)
+
+  if (existingCount === 20 && existingActive) {
+    return existingActive
+  }
 
   db.prepare(
     'UPDATE games SET player1_score = 0, player2_score = 0, current_round = 1 WHERE id = ?'
@@ -471,11 +540,21 @@ export function submitKnowMeGuesses(roundId, playerId, guesses) {
 
   const isGameOver = updated.round_number >= 20
 
+  let roast
+  if (correct === 3) {
+    roast = KNOWME_ROASTS_PERFECT[Math.floor(Math.random() * KNOWME_ROASTS_PERFECT.length)]
+  } else if (correct === 0) {
+    roast = KNOWME_ROASTS_ZERO[Math.floor(Math.random() * KNOWME_ROASTS_ZERO.length)]
+  } else {
+    roast = KNOWME_ROASTS_MIXED[Math.floor(Math.random() * KNOWME_ROASTS_MIXED.length)]
+  }
+
   return {
     round: updated,
     roundEnded: true,
     correct,
     points,
+    roast,
     guesserId: playerId,
     isGameOver,
     game: getGame(game.id),
@@ -517,6 +596,21 @@ export function nextKnowMeRound(gameId) {
 export function startTruthsGame(gameId) {
   const game = getGame(gameId)
   if (!game) return { error: 'Game not found' }
+
+  // Idempotency: if 20 rounds exist and the game is still active, reuse them
+  const existingCount = db
+    .prepare('SELECT COUNT(*) as c FROM truths_rounds WHERE game_id = ?')
+    .get(gameId).c
+
+  const existingActive = db
+    .prepare(
+      "SELECT * FROM truths_rounds WHERE game_id = ? AND status != 'finished' ORDER BY round_number ASC LIMIT 1"
+    )
+    .get(gameId)
+
+  if (existingCount === 20 && existingActive) {
+    return existingActive
+  }
 
   db.prepare(
     'UPDATE games SET player1_score = 0, player2_score = 0, current_round = 1 WHERE id = ?'

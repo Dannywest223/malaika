@@ -87,6 +87,7 @@ io.on('connection', (socket) => {
     const existingGame = getGame(gameId)
     if (!existingGame) return
 
+    // If the game is already playing a specific game type, resend the active round
     if (existingGame.status === 'playing') {
       console.log('   ⚠️ Game status is "playing" — checking for active round')
 
@@ -124,11 +125,9 @@ io.on('connection', (socket) => {
         }
       }
 
+      // No active round found — reset and continue
       console.log('   ⚠️ No active round found — resetting game status')
-      db.prepare('UPDATE games SET status = ? WHERE id = ?').run(
-        'waiting',
-        gameId
-      )
+      db.prepare('UPDATE games SET status = ? WHERE id = ?').run('waiting', gameId)
       existingGame.status = 'waiting'
     }
 
